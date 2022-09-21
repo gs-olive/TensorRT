@@ -4,9 +4,9 @@ Creating a TorchScript Module
 ------------------------------
 TorchScript is a way to create serializable and optimizable models from PyTorch code.
 PyTorch has detailed documentation on how to do this https://pytorch.org/tutorials/beginner/Intro_to_TorchScript_tutorial.html but briefly here is the
-here is key background information and the process:
+key background information and the process:
 
-PyTorch programs are based around ``Module`` s which can be used to compose higher level modules. ``Modules`` contain a constructor to set up the modules, parameters and sub-modules
+PyTorch programs are based around ``Module``s which can be used to compose higher level modules. ``Module``s contain a constructor to set up the modules, parameters and sub-modules
 and a forward function which describes how to use the parameters and submodules when the module is invoked.
 
 For example, we can define a LeNet module like this:
@@ -55,8 +55,6 @@ For example, we can define a LeNet module like this:
             x = self.feat(x)
             x = self.classifer(x)
             return x
-
-.
 
     Obviously you may want to consolidate such a simple model into a single module but we can see the composability of PyTorch here
 
@@ -115,7 +113,7 @@ and the LeNet scripted module IR:
         %x.5 : Tensor = prim::CallMethod[name="forward"](%5, %x.3) # x.py:39:12
         return (%x.5)
 
-You can see that the IR preserves the module structure we have in our python code.
+You can see that the IR preserves the module structure we have in our Python code.
 
 .. _ts_in_py:
 
@@ -123,8 +121,8 @@ Working with TorchScript in Python
 -----------------------------------
 
 TorchScript Modules are run the same way you run normal PyTorch modules. You can run the forward pass using the
-``forward`` method or just calling the module ``torch_scirpt_module(in_tensor)`` The JIT compiler will compile
-and optimize the module on the fly and then returns the results.
+``forward`` method or just calling the module ``torch_script_module(in_tensor)``. The JIT compiler will compile
+and optimize the module on the fly and then return the results.
 
 Saving TorchScript Module to Disk
 -----------------------------------

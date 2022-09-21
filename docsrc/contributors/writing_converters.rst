@@ -7,7 +7,7 @@ Background
 ------------
 
 In the JIT IR, operations are represented as nodes in a graph. A node has inputs and outputs, represented by ``torch::jit::Values``
-which are typed abstract representation of data flowing into and out of a node. TensorRT represents its graph though the
+which are typed abstract representations of data flowing into and out of a node. TensorRT represents its graph though the
 use of ``nvinfer1::ILayers`` and ``nvinfer1::ITensors`` which are its analogues to nodes and values. The goal of
 converters create new ILayers and subgraphs that do operation specified by the node and associate produced ITensors
 and Values together.
@@ -86,7 +86,7 @@ Conversion Context
 The conversion context maintains the state of conversion, it manages the Network Definition, two maps
 one that stores associations between Values and IValues (the evaluated_value_map) and one that stores
 associations between Values and ITensors, and any sort of memory that needs to live until the end of
-conversion. The main apis that you will interface with in converters is directly accessing the network
+conversion. The main APIs that you will interface with in converters are directly accessing the network
 definition to add layers ``ctx->net`` and data association functions ``ctx->AssociateValueAndTensor()``
 and ``ctx->AssociateValueAndIValue()``, which you will use to add layers to the TRT layers and log
 pairs of node outputs and static values or TensorRT layer outputs.
@@ -125,5 +125,5 @@ Other advice
 --------------
 
 You have the benefit of the full aten library when dealing with weights and other static values. This means that you
-can do quite a bit of work during conversion time to produce efficient conversion. A good example is batch_norm
+can do quite a bit of work during conversion time to produce efficient conversion. A good example is the batch_norm
 converter where the converter does fusion of operations with PyTorch before creating the TensorRT layer.

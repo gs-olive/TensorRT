@@ -3,9 +3,9 @@
 Conversion Phase
 ==================
 
-Once the graph has be simplified to a form thats easy to convert, we then set up a conversion context
-to manage the construction of a TensorRT ``INetworkDefinition`` from the blocks nodes. The conversion context
-records the set of converted nodes, block inputs and outputs and other information about the conversion
+Once the graph has been simplified to a form that's easy to convert, we then set up a conversion context
+to manage the construction of a TensorRT ``INetworkDefinition`` from the blocks and nodes. The conversion context
+records the set of converted nodes, block inputs and outputs, and other information about the conversion
 of the graph. This data is then used to help converters link together layers and also hold build time
 information like weights required to construct the engine. After the context is created, the block
 converter starts iterating through the list of nodes, for each node, the converter will look at its
@@ -19,13 +19,13 @@ inputs and assemble an array of resources to pass to the converter. Inputs can b
 
 *  The input is an output of a node that has already been converted
 
-   *  In this case the ITensor of the output has added to the ``value_tensor_map``,
+   *  In this case the ITensor of the output has added to the ``value_tensor_map``.
       The conversion stage will add the ITensor to the list of args for the converter
 
 *  The input is from a node that produces a static value
 
    *  There are nodes that produce static values, typically used to store parameters for operators, we need to
-      evaluate these nodes at conversion time to be able to convert a op. The conversion system will look for a node
+      evaluate these nodes at conversion time to be able to convert an op. The conversion system will look for a node
       evaluator in the evaluator registry and run it on the node. The IValue produced will be entered in the
       conversion context ``evaluated_value_map`` and added to the list of args for the converter. If the node
       to be evaluated takes inputs, the conversion stage will recursively resolve dependencies until the final
@@ -50,4 +50,4 @@ Node converters map JIT nodes to layers or subgraphs of layers. They then associ
 and the TRT graph together in the conversion context. This allows the conversion stage to assemble the inputs
 for the next node. There are some cases where a node produces an output that is not a Tensor but a static result
 from a calculation done on inputs which need to be converted first. In this case the converter may associate the outputs in
-the ``evaluated_value_map`` instead of the ``value_tensor_map``. For more information take a look at: :ref:`writing_converters`
+the ``evaluated_value_map`` instead of the ``value_tensor_map``. For more information take a look at: :ref:`writing_converters`.
