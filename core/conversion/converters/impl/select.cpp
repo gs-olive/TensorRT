@@ -61,6 +61,13 @@ bool add_split(ConversionCtx* ctx, const torch::jit::Node* n, args& args, bool s
     auto gather_layer = ctx->net->addGather(*in, *indicesTensor, axis);
     auto gather_out = gather_layer->getOutput(0);
 
+    if (unbind) { // unbind removes the split dimension
+      auto squeeze_layer = ctx->net->addShuffle(*gather_out);
+      squeeze_layer->setReshapeDimensions(util::squeezeDims(gather_out->getDimensions(), axis));
+      TORCHTRT_CHECK(squeeze_layer, "Unable to create squeeze_layer layer from node: " << *n);
+      gather_out = squeeze_layer->getOutput(0);
+    }
+
     auto tensor_holder = TensorContainer();
     tensor_holder.hold_tensor(gather_out);
     auto ival = c10::IValue(std::move(c10::make_intrusive<TensorContainer>(tensor_holder)));
@@ -362,7 +369,7 @@ auto select_registrations TORCHTRT_UNUSED =
                               nvinfer1::ElementWiseOperation::kPROD,
                               d0,
                               dim_tensor,
-                              std::string("compute_dim0_") + std::to_string(i))
+                              util::node_info(n) + std::string("_compute_dim0_") + std::to_string(i))
                               ->getOutput(0);
                    }
 
@@ -378,7 +385,7 @@ auto select_registrations TORCHTRT_UNUSED =
                               nvinfer1::ElementWiseOperation::kPROD,
                               d1,
                               dim_tensor,
-                              std::string("compute_dim1_") + std::to_string(i))
+                              util::node_info(n) + std::string("_compute_dim1_") + std::to_string(i))
                               ->getOutput(0);
                    }
 
@@ -398,26 +405,27 @@ auto select_registrations TORCHTRT_UNUSED =
                  nvinfer1::ITensor* multiplier = dim_tensor_list[adv_idx_indices[adv_idx_count - 1]];
                  nvinfer1::ITensor* cum_adv_index = tensors[adv_idx_count - 1];
                  for (int i = adv_idx_count - 2; i >= 0; i--) {
-                   nvinfer1::ITensor* adv_index = add_elementwise(
-                                                      ctx,
-                                                      nvinfer1::ElementWiseOperation::kPROD,
-                                                      tensors[i],
-                                                      multiplier,
-                                                      std::string("adv_index_") + std::to_string(i))
-                                                      ->getOutput(0);
+                   nvinfer1::ITensor* adv_index =
+                       add_elementwise(
+                           ctx,
+                           nvinfer1::ElementWiseOperation::kPROD,
+                           tensors[i],
+                           multiplier,
+                           util::node_info(n) + std::string("_adv_index_") + std::to_string(i))
+                           ->getOutput(0);
                    cum_adv_index = add_elementwise(
                                        ctx,
                                        nvinfer1::ElementWiseOperation::kSUM,
                                        cum_adv_index,
                                        adv_index,
-                                       std::string("cum_adv_index_") + std::to_string(i))
+                                       util::node_info(n) + std::string("_cum_adv_index_") + std::to_string(i))
                                        ->getOutput(0);
                    multiplier = add_elementwise(
                                     ctx,
                                     nvinfer1::ElementWiseOperation::kPROD,
                                     multiplier,
                                     dim_tensor_list[adv_idx_indices[i]],
-                                    std::string("multiplier_") + std::to_string(i))
+                                    util::node_info(n) + std::string("_multiplier_") + std::to_string(i))
                                     ->getOutput(0);
                  }
 
