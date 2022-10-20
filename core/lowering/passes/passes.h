@@ -36,6 +36,8 @@ void UnpackLogSoftmax(std::shared_ptr<torch::jit::Graph>& graph);
 void UnpackRsqrt(std::shared_ptr<torch::jit::Graph>& graph);
 void UnpackStd(std::shared_ptr<torch::jit::Graph>& graph);
 void UnpackVar(std::shared_ptr<torch::jit::Graph>& graph);
+void UnpackMaskedFill_(std::shared_ptr<torch::jit::Graph>& graph);
+void UnpackFill_(std::shared_ptr<torch::jit::Graph>& graph);
 void AliasOperators(std::shared_ptr<torch::jit::Graph>& graph);
 void SiluToSigmoidMultipication(std::shared_ptr<torch::jit::Graph>& graph);
 void UnpackHardSwish(std::shared_ptr<torch::jit::Graph>& graph);

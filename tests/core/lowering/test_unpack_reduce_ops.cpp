@@ -246,3 +246,46 @@ TEST(LoweringPasses, UnpackRsqrtIntLowersCorrectly) {
   ASSERT_TRUE(
       torch_tensorrt::tests::util::almostEqual(jit_pre_results[0].toTensor(), jit_post_results[0].toTensor(), 2e-6));
 }
+
+TEST(LoweringPasses, MaskedFill_LowersCorrectly) {
+  const auto graph = R"IR(
+      graph(%x.1 : Tensor, %x.2 : Tensor):
+        %3 : int = prim::Constant[value=4]()
+        %5 : Tensor = aten::masked_fill_(%x.1, %x.2, %3)
+        return (%5))IR";
+
+  auto in1 = at::randint(-10, 10, {2, 4, 6, 8}, {at::kCUDA});
+  auto in2 = at::randint(0, 2, {2, 4, 6, 8}, {at::kCUDA}).to(c10::kBool);
+
+  auto g = std::make_shared<torch::jit::Graph>();
+  torch::jit::parseIR(graph, g.get());
+
+  auto jit_pre_results = torch_tensorrt::tests::util::EvaluateGraphJIT(g, {in1, in2});
+  torch_tensorrt::core::lowering::passes::UnpackMaskedFill_(g);
+  torch::jit::EliminateCommonSubexpression(g);
+  auto jit_post_results = torch_tensorrt::tests::util::EvaluateGraphJIT(g, {in1, in2});
+
+  ASSERT_TRUE(
+      torch_tensorrt::tests::util::almostEqual(jit_pre_results[0].toTensor(), jit_post_results[0].toTensor(), 2e-6));
+}
+
+TEST(LoweringPasses, Fill_LowersCorrectly) {
+  const auto graph = R"IR(
+      graph(%x.1 : Tensor, %x.2 : Tensor):
+        %5 : Tensor = aten::fill_(%x.1, %x.2)
+        return (%5))IR";
+
+  auto in1 = at::randint(-10, 10, {2, 4, 6, 8}, {at::kCUDA});
+  auto in2 = at::ones({}, {at::kCUDA});
+
+  auto g = std::make_shared<torch::jit::Graph>();
+  torch::jit::parseIR(graph, g.get());
+
+  auto jit_pre_results = torch_tensorrt::tests::util::EvaluateGraphJIT(g, {in1, in2});
+  torch_tensorrt::core::lowering::passes::UnpackFill_(g);
+  torch::jit::EliminateCommonSubexpression(g);
+  auto jit_post_results = torch_tensorrt::tests::util::EvaluateGraphJIT(g, {in1, in2});
+
+  ASSERT_TRUE(
+      torch_tensorrt::tests::util::almostEqual(jit_pre_results[0].toTensor(), jit_post_results[0].toTensor(), 2e-6));
+}

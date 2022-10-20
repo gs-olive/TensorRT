@@ -63,6 +63,8 @@ void LowerGraph(std::shared_ptr<torch::jit::Graph>& g, LowerInfo lower_info) {
   passes::UnpackRsqrt(g);
   passes::UnpackStd(g);
   passes::UnpackVar(g);
+  passes::UnpackMaskedFill_(g);
+  passes::UnpackFill_(g);
   passes::RemoveNOPs(g);
   passes::AliasOperators(g);
   passes::SiluToSigmoidMultipication(g);

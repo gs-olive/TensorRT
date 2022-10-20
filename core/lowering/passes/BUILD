@@ -32,6 +32,7 @@ cc_library(
         "unpack_batch_norm.cpp",
         "unpack_hardsigmoid.cpp",
         "unpack_hardswish.cpp",
+        "unpack_inplace_ops.cpp",
         "unpack_log_softmax.cpp",
         "unpack_rsqrt.cpp",
         "unpack_std.cpp",
