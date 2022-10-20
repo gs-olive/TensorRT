@@ -61,6 +61,8 @@ void LowerGraph(std::shared_ptr<torch::jit::Graph>& g, LowerInfo lower_info) {
   // passes::UnpackBatchNorm(g);
   passes::UnpackLogSoftmax(g);
   passes::UnpackNewZeros(g);
+  passes::UnpackNewOnes(g);
+  passes::UnpackNewFull(g);
   passes::UnpackRsqrt(g);
   passes::UnpackStd(g);
   passes::UnpackVar(g);

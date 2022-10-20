@@ -34,6 +34,8 @@ void UnpackAddMM(std::shared_ptr<torch::jit::Graph>& graph);
 void UnpackBatchNorm(std::shared_ptr<torch::jit::Graph>& graph);
 void UnpackLogSoftmax(std::shared_ptr<torch::jit::Graph>& graph);
 void UnpackNewZeros(std::shared_ptr<torch::jit::Graph>& graph);
+void UnpackNewOnes(std::shared_ptr<torch::jit::Graph>& graph);
+void UnpackNewFull(std::shared_ptr<torch::jit::Graph>& graph);
 void UnpackRsqrt(std::shared_ptr<torch::jit::Graph>& graph);
 void UnpackStd(std::shared_ptr<torch::jit::Graph>& graph);
 void UnpackVar(std::shared_ptr<torch::jit::Graph>& graph);
