@@ -237,6 +237,35 @@ CollectionTypeMap get_block_first_calc_dtypes_opt_collection(torch::jit::Block* 
   return types;
 }
 
+// std::string to_str(ExtendedDataType value) {
+//   switch (value) {
+//   case ExtendedDataType::kHalf:
+//     return "Half";
+//   case ExtendedDataType::kChar:
+//     return "Int8";
+//   case ExtendedDataType::kInt32:
+//     return "Int32";
+//   case ExtendedDataType::kBool:
+//     return "Bool";
+//   case ExtendedDataType::kFloat:
+//     return "Float";
+//   case ExtendedDataType::kLong:
+//     return "Long";
+//   default:
+//     return "Unknown data type";
+//   }
+// }
+
+// at::ScalarType RichDataTypeToScalarType(RichDataType t) {
+//   auto trt_type = util::optTRTDataTypeToScalarType(t.TRT_data_type);
+//   TORCHTRT_CHECK(trt_type, "Unsupported TensorRT data type " << t.TRT_data_type);
+//   if (t.data_type == ExtendedDataType::kLong) {
+//     return at::kLong;
+//   } else {
+//     return trt_type.value();
+//   }
+// }
+
 static auto core_input_container = torch::class_<Input>("_torch_tensorrt_core_ir", "Input").def(torch::init<>());
 
 } // namespace ir

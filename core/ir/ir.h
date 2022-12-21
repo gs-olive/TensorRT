@@ -17,6 +17,28 @@ enum class ShapeMode {
   kMAX,
 };
 
+// enum class ExtendedDataType : int8_t { kLong, kFloat, kHalf, kChar, kInt32, kBool, kUnknown };
+// std::string to_str(ExtendedDataType value);
+
+// struct RichDataType {
+//   RichDataType(nvinfer1::DataType TRT_data_type, ExtendedDataType data_type) {
+//     this->TRT_data_type = TRT_data_type;
+//     this->data_type = data_type;
+//   };
+//   RichDataType(nvinfer1::DataType TRT_data_type) {
+//     this->TRT_data_type = TRT_data_type;
+//     this->data_type = ExtendedDataType::kUnknown;
+//   };
+//   RichDataType() {
+//     this->TRT_data_type = nvinfer1::DataType::kFLOAT;
+//     this->data_type = ExtendedDataType::kFloat;
+//   };
+
+//   ExtendedDataType data_type;
+//   nvinfer1::DataType TRT_data_type;
+// };
+// at::ScalarType RichDataTypeToScalarType(RichDataType t);
+
 struct Device {
   nvinfer1::DeviceType device_type;
   int64_t gpu_id;
@@ -29,16 +51,17 @@ struct Input : torch::CustomClassHolder {
   Input(){};
   Input(
       std::vector<int64_t> shape,
-      nvinfer1::DataType dtype = nvinfer1::DataType::kFLOAT,
+      at::ScalarType dtype = at::kFloat,
       nvinfer1::TensorFormat format = nvinfer1::TensorFormat::kLINEAR,
       bool dtype_is_user_defined = false);
   Input(
       std::vector<int64_t> min_shape,
       std::vector<int64_t> opt_shape,
       std::vector<int64_t> max_shape,
-      nvinfer1::DataType dtype = nvinfer1::DataType::kFLOAT,
+      at::ScalarType dtype = at::kFloat,
       nvinfer1::TensorFormat format = nvinfer1::TensorFormat::kLINEAR,
       bool dtype_is_used_defined = false);
+
   friend std::ostream& operator<<(std::ostream& os, const Input& input);
 
   bool input_is_dynamic = false;
@@ -47,7 +70,7 @@ struct Input : torch::CustomClassHolder {
   nvinfer1::Dims min;
   nvinfer1::Dims max;
   nvinfer1::Dims opt;
-  nvinfer1::DataType dtype;
+  at::ScalarType dtype;
   nvinfer1::TensorFormat format;
   int id;
 };
