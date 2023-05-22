@@ -2,7 +2,7 @@ from typing import Sequence, Union
 import torch
 from torch_tensorrt.fx.trt_module import TRTModule
 from torch_tensorrt import TRTModuleNext
-from torch_tensorrt.fx.fx2trt import (
+from torch_tensorrt.dynamo.fx_ts_compat import (
     InputTensorSpec,
     TRTInterpreter,
 )
