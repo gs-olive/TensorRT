@@ -2,6 +2,7 @@ from typing import Sequence
 import torch
 import traceback
 from functools import partial
+from dataclasses import replace, fields
 import torch._dynamo as td
 
 from torch_tensorrt.dynamo.backend._settings import CompilationSettings
@@ -25,7 +26,15 @@ def torch_tensorrt_backend(
     gm: torch.fx.GraphModule,
     sample_inputs: Sequence[torch.Tensor],
     settings: CompilationSettings = CompilationSettings(),
+    **kwargs
 ):
+    # If the user specifies keyword args, overwrite those fields in settings
+    # Validate all specified kwargs to ensure they are true fields of the dataclass
+    if kwargs:
+        valid_attrs = {attr.name for attr in fields(settings)}
+        valid_kwargs = {k: v for k, v in kwargs.items() if k in valid_attrs}
+        settings = replace(settings, **valid_kwargs)
+
     DEFAULT_BACKEND = aot_torch_tensorrt_aten_backend
 
     return DEFAULT_BACKEND(gm, sample_inputs, settings=settings)

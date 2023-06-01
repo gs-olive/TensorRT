@@ -9,7 +9,6 @@ This interactive script is intended as an overview of the process by which `torc
 # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 import torch
-from torch_tensorrt.dynamo.backend import create_backend
 from torch_tensorrt.fx.lower_setting import LowerPrecision
 
 # %%
@@ -39,9 +38,9 @@ model = Model().eval().cuda()
 
 # Next, we compile the model using torch.compile
 # For the default settings, we can simply call torch.compile
-# with the backend "tensorrt", and run the model on an
+# with the backend "torch_tensorrt", and run the model on an
 # input to cause compilation, as so:
-optimized_model = torch.compile(model, backend="tensorrt")
+optimized_model = torch.compile(model, backend="torch_tensorrt")
 optimized_model(*sample_inputs)
 
 # %%
@@ -58,18 +57,23 @@ model_half = Model().eval().cuda()
 # %%
 
 # If we want to customize certain options in the backend,
-# but still use the torch.compile call directly, we can call the
-# convenience/helper function create_backend to create a custom backend
-# which has been pre-populated with certain keys
-custom_backend = create_backend(
-    lower_precision=LowerPrecision.FP16,
-    debug=True,
-    min_block_size=2,
-    torch_executed_ops={},
-)
+# but still use the torch.compile call directly, we can provide
+# custom options to the backend via the "options" keyword
+# which takes in a dictionary mapping options to values.
+#
+# For accepted backend options, see the CompilationSettings dataclass:
+# py/torch_tensorrt/dynamo/backend/_settings.py
+backend_kwargs = {
+    "lower_precision": LowerPrecision.FP16,
+    "debug": True,
+    "min_block_size": 2,
+    "torch_executed_ops": {"torch.ops.aten.sub.Tensor"},
+}
 
 # Run the model on an input to cause compilation, as so:
-optimized_model_custom = torch.compile(model_half, backend=custom_backend)
+optimized_model_custom = torch.compile(
+    model_half, backend="torch_tensorrt", options=backend_kwargs
+)
 optimized_model_custom(*sample_inputs_half)
 
 # %%
