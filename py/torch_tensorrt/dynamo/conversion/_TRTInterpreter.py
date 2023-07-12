@@ -4,6 +4,9 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Set
 
 import numpy
+
+# @manual=//deeplearning/trt/python:py_tensorrt
+import tensorrt as trt
 import torch
 import torch.fx
 from torch.fx.node import _get_qualified_name
@@ -12,8 +15,6 @@ from torch_tensorrt._Input import Input
 from torch_tensorrt.fx.observer import Observer
 from torch_tensorrt.fx.utils import Frameworks, unified_dtype_converter
 
-# @manual=//deeplearning/trt/python:py_tensorrt
-import tensorrt as trt
 from packaging import version
 
 from .converter_registry import DYNAMO_CONVERTERS as CONVERTERS
@@ -23,6 +24,10 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 TRT_INTERPRETER_CALL_PRE_OBSERVER: Observer[
     Callable[[torch.fx.GraphModule], None]
 ] = Observer("TRT_INTERPRETER_CALL_PRE_OBSERVER")
+
+
+class UnsupportedOperatorException(RuntimeError):
+    pass
 
 
 class TRTInterpreterResult(NamedTuple):
@@ -299,7 +304,7 @@ class TRTInterpreter(torch.fx.Interpreter):  # type: ignore[misc]
         converter = CONVERTERS.get(self._cur_node)
 
         if not converter:
-            raise RuntimeError(
+            raise UnsupportedOperatorException(
                 f"Conversion of module of type {submod_type} not currently supported!"
             )
 
@@ -310,7 +315,7 @@ class TRTInterpreter(torch.fx.Interpreter):  # type: ignore[misc]
         # TODO: Why is this stateful? We should be able to take in the inputs
         converter = CONVERTERS.get(self._cur_node)
         if not converter:
-            raise RuntimeError(
+            raise UnsupportedOperatorException(
                 f"Conversion of function {torch.typename(target)} not currently supported!"
             )
 
@@ -322,7 +327,7 @@ class TRTInterpreter(torch.fx.Interpreter):  # type: ignore[misc]
         converter = CONVERTERS.get(self._cur_node)
 
         if not converter:
-            raise RuntimeError(
+            raise UnsupportedOperatorException(
                 f"Conversion of method {target} not currently supported!"
             )
 
