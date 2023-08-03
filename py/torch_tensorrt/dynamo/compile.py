@@ -22,6 +22,7 @@ from torch_tensorrt.dynamo._defaults import (
     USE_PYTHON_RUNTIME,
     VERSION_COMPATIBLE,
     WORKSPACE_SIZE,
+    ENABLE_EXPERIMENTAL_DECOMPOSITIONS,
 )
 from torch_tensorrt.dynamo.backend.backends import _compile_module
 from torch_tensorrt.dynamo.conversion import convert_module
@@ -62,6 +63,7 @@ def compile(
     version_compatible: bool = VERSION_COMPATIBLE,
     optimization_level: Optional[int] = OPTIMIZATION_LEVEL,
     use_python_runtime: bool = USE_PYTHON_RUNTIME,
+    enable_experimental_decompositions=ENABLE_EXPERIMENTAL_DECOMPOSITIONS,
     **kwargs: Any,
 ) -> torch.fx.GraphModule:
     if debug:
@@ -73,7 +75,7 @@ def compile(
         "The Dynamo backend is an experimental feature, for which only the "
         + "following arguments are supported: "
         + "{enabled_precisions, debug, workspace_size, min_block_size, "
-        + "torch_executed_ops, pass_through_build_failures}"
+        + "torch_executed_ops, pass_through_build_failures, enable_experimental_decompositions}"
     )
 
     if not isinstance(inputs, collections.abc.Sequence):
@@ -113,6 +115,7 @@ def compile(
         "optimization_level": optimization_level,
         "use_python_runtime": use_python_runtime,
         "truncate_long_and_double": truncate_long_and_double,
+        "enable_experimental_decompositions": enable_experimental_decompositions,
     }
 
     settings = CompilationSettings(**compilation_options)
