@@ -125,6 +125,11 @@ def _compile_module(
     # Iterate over all components that can be accelerated
     # Generate the corresponding TRT Module for those
     for name, _ in partitioned_module.named_children():
+
+        # Criteria for a module to be convertible to TRT
+        if "_run_on_acc" not in name:
+            continue
+
         submodule = getattr(partitioned_module, name)
 
         # Get submodule inputs
