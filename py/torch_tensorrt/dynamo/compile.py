@@ -13,6 +13,7 @@ from torch_tensorrt._enums import (  # TODO: Should probabably be the TRT Engine
 from torch_tensorrt.dynamo import CompilationSettings
 from torch_tensorrt.dynamo._defaults import (
     DEBUG,
+    ENABLE_EXPERIMENTAL_DECOMPOSITIONS,
     MAX_AUX_STREAMS,
     MIN_BLOCK_SIZE,
     OPTIMIZATION_LEVEL,
@@ -22,7 +23,6 @@ from torch_tensorrt.dynamo._defaults import (
     USE_PYTHON_RUNTIME,
     VERSION_COMPATIBLE,
     WORKSPACE_SIZE,
-    ENABLE_EXPERIMENTAL_DECOMPOSITIONS,
 )
 from torch_tensorrt.dynamo.backend.backends import _compile_module
 from torch_tensorrt.dynamo.conversion import convert_module
@@ -63,7 +63,7 @@ def compile(
     version_compatible: bool = VERSION_COMPATIBLE,
     optimization_level: Optional[int] = OPTIMIZATION_LEVEL,
     use_python_runtime: bool = USE_PYTHON_RUNTIME,
-    enable_experimental_decompositions=ENABLE_EXPERIMENTAL_DECOMPOSITIONS,
+    enable_experimental_decompositions: bool = ENABLE_EXPERIMENTAL_DECOMPOSITIONS,
     **kwargs: Any,
 ) -> torch.fx.GraphModule:
     if debug:

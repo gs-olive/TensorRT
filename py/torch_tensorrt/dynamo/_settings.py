@@ -4,6 +4,7 @@ from typing import Optional, Set
 import torch
 from torch_tensorrt.dynamo._defaults import (
     DEBUG,
+    ENABLE_EXPERIMENTAL_DECOMPOSITIONS,
     MAX_AUX_STREAMS,
     MIN_BLOCK_SIZE,
     OPTIMIZATION_LEVEL,
@@ -13,7 +14,6 @@ from torch_tensorrt.dynamo._defaults import (
     USE_PYTHON_RUNTIME,
     VERSION_COMPATIBLE,
     WORKSPACE_SIZE,
-    ENABLE_EXPERIMENTAL_DECOMPOSITIONS,
 )
 
 
