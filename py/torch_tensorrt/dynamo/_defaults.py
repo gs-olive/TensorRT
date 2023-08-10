@@ -1,4 +1,5 @@
 import torch
+from torch_tensorrt._Device import Device
 
 PRECISION = torch.float32
 DEBUG = False
@@ -12,3 +13,4 @@ TRUNCATE_LONG_AND_DOUBLE = False
 USE_PYTHON_RUNTIME = False
 USE_FAST_PARTITIONER = True
 ENABLE_EXPERIMENTAL_DECOMPOSITIONS = False
+DEVICE = Device._current_device()

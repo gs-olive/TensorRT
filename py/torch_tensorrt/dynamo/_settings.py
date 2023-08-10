@@ -2,8 +2,10 @@ from dataclasses import dataclass, field
 from typing import Optional, Set
 
 import torch
+from torch_tensorrt._Device import Device
 from torch_tensorrt.dynamo._defaults import (
     DEBUG,
+    DEVICE,
     ENABLE_EXPERIMENTAL_DECOMPOSITIONS,
     MAX_AUX_STREAMS,
     MIN_BLOCK_SIZE,
@@ -54,3 +56,4 @@ class CompilationSettings:
     truncate_long_and_double: bool = TRUNCATE_LONG_AND_DOUBLE
     use_fast_partitioner: bool = USE_FAST_PARTITIONER
     enable_experimental_decompositions: bool = ENABLE_EXPERIMENTAL_DECOMPOSITIONS
+    device: Device = DEVICE

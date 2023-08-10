@@ -1,6 +1,6 @@
 import logging
 from dataclasses import fields, replace
-from typing import Any, Callable, Dict, Optional, Sequence
+from typing import Any, Callable, Dict, Optional, Sequence, Union
 
 import torch
 import torch_tensorrt
@@ -114,23 +114,37 @@ def prepare_inputs(
         )
 
 
-def prepare_device(device: Device | torch.device) -> torch.device:
-    _device: torch.device
+def to_torch_device(device: Union[Device, torch.device, str]) -> torch.device:
+    """Cast a device-type to torch.device
+
+    Returns the corresponding torch.device
+    """
     if isinstance(device, Device):
         if device.gpu_id != -1:
-            _device = torch.device(device.gpu_id)
+            return torch.device(device.gpu_id)
         else:
             raise ValueError("Invalid GPU ID provided for the CUDA device provided")
 
     elif isinstance(device, torch.device):
-        _device = device
+        return device
 
     else:
-        raise ValueError(
-            "Invalid device provided. Supported options: torch.device | torch_tensorrt.Device"
-        )
+        return torch.device(device)
 
-    return _device
+
+def to_torch_tensorrt_device(device: Union[Device, torch.device, str]) -> Device:
+    """Cast a device-type to torch_tensorrt.Device
+
+    Returns the corresponding torch_tensorrt.Device
+    """
+    if isinstance(device, Device):
+        return device
+
+    elif isinstance(device, torch.device):
+        return Device(gpu_id=device.index)
+
+    else:
+        return Device(device)
 
 
 def parse_dynamo_kwargs(kwargs: Any) -> CompilationSettings:
@@ -185,6 +199,19 @@ def parse_dynamo_kwargs(kwargs: Any) -> CompilationSettings:
 
     # Parse input runtime specification
     settings.use_python_runtime = use_python_runtime_parser(settings.use_python_runtime)
+
+    # Ensure device is a torch_tensorrt Device
+    settings.device = to_torch_tensorrt_device(settings.device)
+
+    # Check and update device settings
+    default_torch_gpu_idx = torch.cuda.default_stream().device.index
+    if "device" not in kwargs and default_torch_gpu_idx != settings.device.gpu_id:
+        logger.warning(
+            f"No device specified, detected differing gpu IDs for CUDA default: {settings.device.gpu_id} "
+            f"and Torch default: {default_torch_gpu_idx}. Using Torch default gpu ID: {default_torch_gpu_idx}. "
+            "If this is incorrect, please specify an input device, via the device keyword."
+        )
+        settings.device = Device(gpu_id=default_torch_gpu_idx)
 
     logger.debug(f"Compiling with Settings:\n{settings}")
 
