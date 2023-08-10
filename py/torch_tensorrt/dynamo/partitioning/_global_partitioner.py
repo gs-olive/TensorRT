@@ -121,7 +121,10 @@ class TorchTensorRTOperatorSupport(OperatorSupport):  # type: ignore[misc]
     ) -> bool:
         node_name = ConverterRegistry.qualified_name_or_str(node.target)
 
-        if node in CONVERTERS and node_name not in self.torch_executed_ops:
+        if (
+            node.target in CONVERTERS.keys()
+            or (node.op == "get_attr" and "constant" in node_name)
+        ) and node_name not in self.torch_executed_ops:
             # If node is a proper, supported computational node, store the operator
             if not node.is_impure():
                 if node_name not in self.supported_operators:
@@ -143,7 +146,7 @@ class TorchTensorRTOperatorSupport(OperatorSupport):  # type: ignore[misc]
         self, num_trt_blocks: Optional[int] = None, print_node_support: bool = False
     ) -> None:
         if num_trt_blocks is not None:
-            logger.debug(
+            print(
                 f"\nNumber of TensorRT-Accelerated Engines Generated: {num_trt_blocks}"
             )
 

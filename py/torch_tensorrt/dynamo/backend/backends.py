@@ -4,14 +4,14 @@ from typing import Any, Callable, Sequence
 
 import torch
 import torch._dynamo as td
-from torch._functorch.aot_autograd import aot_module_simplified, make_boxed_compiler
-from torch_tensorrt.dynamo import CompilationSettings, partitioning
+from torch._functorch.aot_autograd import aot_export_joint_simple
+from torch_tensorrt.dynamo import CompilationSettings
 from torch_tensorrt.dynamo.conversion import (
     convert_module,
     repair_long_or_double_inputs,
 )
 from torch_tensorrt.dynamo.lowering._decompositions import get_decompositions
-from torch_tensorrt.dynamo.lowering._pre_aot_lowering import pre_aot_substitutions
+from torch_tensorrt.dynamo import partitioning
 from torch_tensorrt.dynamo.utils import parse_dynamo_kwargs
 
 logger = logging.getLogger(__name__)
@@ -39,15 +39,37 @@ def aot_torch_tensorrt_aten_backend(
     )
 
     # Perform Pre-AOT Lowering for Module-Level Replacement
-    gm = pre_aot_substitutions(gm)
+    # gm = pre_aot_substitutions(gm)
 
-    # Invoke AOTAutograd to translate operators to aten
-    return aot_module_simplified(
-        gm,
-        sample_inputs,
-        fw_compiler=make_boxed_compiler(custom_backend),
-        decompositions=get_decompositions(),
-    )
+    from torch._dynamo.utils import detect_fake_mode
+    from torch._inductor.freezing import constant_fold
+    import unittest
+
+    fake_mode = detect_fake_mode(sample_inputs)
+
+    # Place backend tracing within FakeTensor context allowing nonfake Tensors
+    with unittest.mock.patch.object(
+        fake_mode, "allow_non_fake_inputs", True
+    ), fake_mode:
+
+        # Invoke AOTAutograd to translate operators to aten
+        graph_module = aot_export_joint_simple(
+            gm,
+            sample_inputs,
+            trace_joint=False,
+            decompositions=get_decompositions(),
+        )
+        constant_fold(graph_module)
+
+        return _pretraced_backend(graph_module, sample_inputs, settings)
+
+    # # Invoke AOTAutograd to translate operators to aten
+    # return aot_module_simplified(
+    #     gm,
+    #     sample_inputs,
+    #     fw_compiler=make_boxed_compiler(custom_backend),
+    #     decompositions=get_decompositions(),
+    # )
 
 
 def _pretraced_backend(
