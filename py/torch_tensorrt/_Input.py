@@ -339,9 +339,9 @@ class Input(object):
             A Input object.
         """
         if not (
-            t.is_contiguous(memory_format=torch.contiguous_format)
+            disable_memory_format_check
+            or t.is_contiguous(memory_format=torch.contiguous_format)
             or t.is_contiguous(memory_format=torch.channels_last)
-            or disable_memory_format_check
         ):
             raise ValueError(
                 "Tensor does not have a supported memory format, supported formats are contiguous or channel_last"
@@ -354,6 +354,7 @@ class Input(object):
             )
             else torch.channels_last
         )
+        # if len(t.shape) else (1,)
         return cls(shape=t.shape, dtype=t.dtype, format=frmt)
 
     @classmethod

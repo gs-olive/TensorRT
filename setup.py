@@ -195,7 +195,7 @@ def copy_libtorchtrt(multilinux=False):
         os.system(
             "tar -xzf "
             + dir_path
-            + "/../bazel-bin/libtorchtrt.tar.gz --strip-components=1 -C "
+            + "/../bazel-bin/libtorchtrt.tar.gz --no-same-owner --strip-components=1 -C "
             + dir_path
             + "/torch_tensorrt"
         )

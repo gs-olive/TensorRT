@@ -136,9 +136,9 @@ std::vector<at::Tensor> execute_engine(std::vector<at::Tensor> inputs, c10::intr
       TORCHTRT_CHECK(
           inputs[i].dtype() == expected_type,
           "Expected input tensors to have type " << expected_type << ", found type " << inputs[i].dtype());
-      auto dims = core::util::toDimsPad(inputs[i].sizes(), 1);
+      auto dims = core::util::toDimsPad(inputs[i].sizes(), 0);
       auto shape = core::util::toVec(dims);
-      LOG_DEBUG("Input Name: " << name << " Shape: " << dims);
+      LOG_WARNING("Input Name: " << name << " Shape: " << dims);
       compiled_engine->exec_ctx->setInputShape(name.c_str(), dims);
       compiled_engine->exec_ctx->setTensorAddress(name.c_str(), inputs[i].view(shape).contiguous().data_ptr());
     }

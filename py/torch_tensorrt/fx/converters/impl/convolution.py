@@ -54,7 +54,7 @@ def convNd(
         )
 
     # Process bias terms
-    if isinstance(bias, torch.Tensor):
+    if isinstance(bias, (torch.Tensor, np.ndarray)):
         # Transform the bias constant into a Numpy array
         bias = to_numpy(bias)
 
@@ -79,7 +79,7 @@ def convNd(
                 network, target, tuple(), kwargs, name + "_unsqueeze_weight"
             )
 
-    elif isinstance(weight, torch.Tensor):
+    elif isinstance(weight, (torch.Tensor, np.ndarray)):
         # Transform the weight constant into a Numpy array
         weight = to_numpy(weight)
 
@@ -111,8 +111,8 @@ def convNd(
     # Expand parameters manually for Conv1D computations
     if is_conv1d:
         padding = tuple(padding) + (0,)
-        stride = extend_attr_to_tuple(stride, 2)
-        dilation = extend_attr_to_tuple(dilation, 2)
+        stride = extend_attr_to_tuple(stride[0], 2)
+        dilation = extend_attr_to_tuple(dilation[0], 2)
 
     set_layer_name(conv_layer, target, name, source_ir)
 

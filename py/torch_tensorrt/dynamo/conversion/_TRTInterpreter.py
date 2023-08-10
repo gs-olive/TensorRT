@@ -11,6 +11,7 @@ from torch.fx.passes.shape_prop import TensorMetadata
 from torch_tensorrt._Input import Input
 from torch_tensorrt.fx.observer import Observer
 from torch_tensorrt.fx.utils import Frameworks, unified_dtype_converter
+from torch.utils._python_dispatch import _disable_current_modes
 
 # @manual=//deeplearning/trt/python:py_tensorrt
 import tensorrt as trt
@@ -317,6 +318,21 @@ class TRTInterpreter(torch.fx.Interpreter):  # type: ignore[misc]
         assert self._cur_node_name is not None
         return converter(self.network, target, args, kwargs, self._cur_node_name)
 
+    def get_attr(self, target, args, kwargs):
+        with _disable_current_modes():
+            from torch_tensorrt.fx.converters import to_numpy
+
+            frozen_attr = self.fetch_attr(target)
+
+            if isinstance(frozen_attr, torch.nn.Parameter):
+                constant_tensor = frozen_attr.data
+            else:
+                constant_tensor = frozen_attr
+
+            network_constant = to_numpy(constant_tensor)
+
+        return network_constant
+
     def call_method(self, target: str, args: Any, kwargs: Any) -> Any:
         assert isinstance(target, str)
         converter = CONVERTERS.get(self._cur_node)
@@ -337,6 +353,17 @@ class TRTInterpreter(torch.fx.Interpreter):  # type: ignore[misc]
             outputs = tuple(args[0])
         else:
             outputs = (args[0],)
+
+        for output_idx in range(len(outputs)):
+            from torch_tensorrt.fx.converters import get_trt_tensor
+
+            output = outputs[output_idx]
+
+            if not isinstance(output, trt.tensorrt.ITensor):
+                new_output = get_trt_tensor(self.network, output, target)
+                outputs = (
+                    outputs[:output_idx] + (new_output,) + outputs[output_idx + 1 :]
+                )
 
         if not all(isinstance(output, trt.tensorrt.ITensor) for output in outputs):
             raise RuntimeError("TensorRT requires all outputs to be Tensor!")

@@ -2,24 +2,23 @@ import logging
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import torch
-
+import torch.fx.passes.operator_support as ops
+from torch.fx.node import Target
 from torch.fx.passes.splitter_base import (
+    FxNetAccFusionsFinder,
+    FxNetAccNodesFinder,
     Subgraph,
     _SplitterBase,
     _SplitterSettingBase,
-    FxNetAccNodesFinder,
-    FxNetAccFusionsFinder,
 )
-import torch.fx.passes.operator_support as ops
-from torch.fx.passes.tools_common import NodeSet, CALLABLE_NODE_OPS
-from torch.fx.node import Target
-
-from torch_tensorrt.dynamo.conversion.converter_registry import ConverterRegistry
-from .common import DEFAULT_SINGLE_NODE_PARTITIONS
+from torch.fx.passes.tools_common import CALLABLE_NODE_OPS, NodeSet
 from torch_tensorrt.dynamo._defaults import MIN_BLOCK_SIZE
+from torch_tensorrt.dynamo.conversion.converter_registry import (
+    DYNAMO_CONVERTERS as CONVERTERS,
+)
+from torch_tensorrt.dynamo.conversion.converter_registry import ConverterRegistry
 
-from torch_tensorrt.dynamo import DYNAMO_CONVERTERS as CONVERTERS
-
+from .common import DEFAULT_SINGLE_NODE_PARTITIONS
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,10 @@ class OpSupportTester(ops.OperatorSupportBase):
     ) -> bool:
         node_name = ConverterRegistry.qualified_name_or_str(node.target)
 
-        if node in CONVERTERS and node_name not in self.torch_executed_ops:
+        if (
+            node.target in CONVERTERS.keys()
+            or (node.op == "get_attr" and "constant" in node_name)
+        ) and node_name not in self.torch_executed_ops:
             # If node is a proper, supported computational node, store the operator
             if not node.is_impure():
                 if node_name not in self.supported_operators:
@@ -60,7 +62,7 @@ class OpSupportTester(ops.OperatorSupportBase):
 
     def print_support_overview(self, num_trt_blocks: Optional[int] = None):
         if num_trt_blocks is not None:
-            logger.debug(
+            print(
                 f"\nNumber of TensorRT-Accelerated Engines Generated: {num_trt_blocks}"
             )
 
@@ -69,16 +71,16 @@ class OpSupportTester(ops.OperatorSupportBase):
         for node_name, count in self.supported_operators.items():
             supported_nodes_str += f"- {node_name} + Operator Count: {count}\n"
 
-        logger.debug(supported_nodes_str)
+        print(supported_nodes_str)
 
         if self.unsupported_operators:
             unsupported_nodes_str = "\nUnsupported or Excluded Nodes:\n"
             for node_name, count in self.unsupported_operators.items():
                 unsupported_nodes_str += f"- {node_name} + Operator Count: {count}\n"
 
-            logger.debug(unsupported_nodes_str)
+            print(unsupported_nodes_str)
         else:
-            logger.debug("\nAll Nodes Supported\n")
+            print("\nAll Nodes Supported\n")
 
 
 class TRTPartitioner(_SplitterBase):

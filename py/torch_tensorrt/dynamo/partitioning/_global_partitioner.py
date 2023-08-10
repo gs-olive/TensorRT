@@ -124,7 +124,10 @@ class TorchTensorRTOperatorSupport(OperatorSupport):  # type: ignore[misc]
             else node.target
         )
 
-        if node in CONVERTERS and node_name not in self.torch_executed_ops:
+        if (
+            node.target in CONVERTERS.keys()
+            or (node.op == "get_attr" and "constant" in node_name)
+        ) and node_name not in self.torch_executed_ops:
             # If node is a proper, supported computational node, store the operator
             if not node.is_impure():
                 if node_name not in self.supported_operators:
@@ -144,7 +147,7 @@ class TorchTensorRTOperatorSupport(OperatorSupport):  # type: ignore[misc]
 
     def print_support_overview(self, num_trt_blocks: Optional[int] = None) -> None:
         if num_trt_blocks is not None:
-            logger.debug(
+            print(
                 f"\nNumber of TensorRT-Accelerated Engines Generated: {num_trt_blocks}"
             )
 
@@ -153,16 +156,16 @@ class TorchTensorRTOperatorSupport(OperatorSupport):  # type: ignore[misc]
         for node_name, count in self.supported_operators.items():
             supported_nodes_str += f"- {node_name} + Operator Count: {count}\n"
 
-        logger.debug(supported_nodes_str)
+        print(supported_nodes_str)
 
         if self.unsupported_operators:
             unsupported_nodes_str = "\nUnsupported or Excluded Nodes:\n"
             for node_name, count in self.unsupported_operators.items():
                 unsupported_nodes_str += f"- {node_name} + Operator Count: {count}\n"
 
-            logger.debug(unsupported_nodes_str)
+            print(unsupported_nodes_str)
         else:
-            logger.debug("\nAll Nodes Supported\n")
+            print("\nAll Nodes Supported\n")
 
 
 def partition(

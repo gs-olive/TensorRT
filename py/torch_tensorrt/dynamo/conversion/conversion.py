@@ -63,6 +63,7 @@ def convert_module(
 
     else:
         from torch_tensorrt.dynamo.runtime import TorchTensorRTModule
+        from torch_tensorrt._Device import Device
 
         with io.BytesIO() as engine_bytes:
             engine_bytes.write(interpreter_result.engine.serialize())
