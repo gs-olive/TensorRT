@@ -155,7 +155,7 @@ class TorchTensorRTOperatorSupport(OperatorSupport):  # type: ignore[misc]
             for node_name, count in self.supported_operators.items():
                 supported_nodes_str += f"- {node_name} + Operator Count: {count}\n"
 
-            logger.debug(supported_nodes_str)
+            print(supported_nodes_str)
 
             if self.unsupported_operators:
                 unsupported_nodes_str = "\nUnsupported or Excluded Nodes:\n"
@@ -164,9 +164,9 @@ class TorchTensorRTOperatorSupport(OperatorSupport):  # type: ignore[misc]
                         f"- {node_name} + Operator Count: {count}\n"
                     )
 
-                logger.debug(unsupported_nodes_str)
+                print(unsupported_nodes_str)
             else:
-                logger.debug("\nAll Nodes Supported\n")
+                print("\nAll Nodes Supported\n")
 
 
 def partition(

@@ -421,7 +421,13 @@ def aten_ops_to_copy_dtype(
     )
 
 
-@dynamo_tensorrt_converter(operator.getitem)
+def getitem_check(getitem_node: Node) -> bool:
+    from torch_tensorrt.dynamo.conversion.converter_registry import DYNAMO_CONVERTERS
+
+    return getitem_node.args[0] in DYNAMO_CONVERTERS
+
+
+@dynamo_tensorrt_converter(operator.getitem, capability_validator=getitem_check)
 def operator_getitem(
     network: TRTNetwork,
     target: Target,
@@ -429,14 +435,7 @@ def operator_getitem(
     kwargs: Dict[str, Argument],
     name: str,
 ) -> Union[TRTTensor, Sequence[TRTTensor]]:
-    return impl.evaluators.getitem(
-        network,
-        target,
-        SourceIR.ATEN,
-        name,
-        args[0],
-        args[1],
-    )
+    return target(*args, **kwargs)
 
 
 @dynamo_tensorrt_converter(torch.ops.aten.clone.default)

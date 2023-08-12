@@ -43,7 +43,6 @@ def aot_torch_tensorrt_aten_backend(
     import unittest
 
     from torch._dynamo.utils import detect_fake_mode
-    from torch._inductor.freezing import constant_fold
 
     fake_mode = detect_fake_mode(sample_inputs)
 
@@ -58,17 +57,10 @@ def aot_torch_tensorrt_aten_backend(
             trace_joint=False,
             decompositions=get_decompositions(),
         )
+
         constant_fold(graph_module)
 
         return _pretraced_backend(graph_module, sample_inputs, settings)
-
-    # # Invoke AOTAutograd to translate operators to aten
-    # return aot_module_simplified(
-    #     gm,
-    #     sample_inputs,
-    #     fw_compiler=make_boxed_compiler(custom_backend),
-    #     decompositions=get_decompositions(),
-    # )
 
 
 def _pretraced_backend(
@@ -220,3 +212,27 @@ def _compile_module(
         settings.use_fast_partitioner = True
 
     return partitioned_module
+
+
+@torch.utils._python_dispatch._disable_current_modes()
+def constant_fold(gm):
+    from torch._inductor.freezing import ConstantFolder, replace_node_with_constant
+
+    cf = ConstantFolder(gm, skip_constructors=False)
+    cf.run()
+
+    for node, constant in cf.node_replacements.items():
+        replace_node_with_constant(gm, node, constant)
+
+    erased_params = []
+    for node in gm.graph.nodes:
+        if node.op == "get_attr" and len(node.users) == 0:
+            delattr(gm, node.target)
+            erased_params.append(node)
+
+    for node in erased_params:
+        gm.graph.erase_node(node)
+
+    gm.graph.eliminate_dead_code()
+    gm.graph.lint()
+    gm.recompile()
