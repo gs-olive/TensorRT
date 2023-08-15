@@ -453,3 +453,25 @@ def aten_ops_clone(
         name,
         args[0],
     )
+
+
+@dynamo_tensorrt_converter(torch.ops.aten.sqrt.default)
+def aten_ops_sqrt(
+    network: TRTNetwork,
+    target: Target,
+    args: Tuple[Argument, ...],
+    kwargs: Dict[str, Argument],
+    name: str,
+) -> Union[TRTTensor, Sequence[TRTTensor]]:
+    input_val = args[0]
+    if (isinstance(input_val, TRTTensor)) and (
+        input_val.dtype == trt.int8 or input_val.dtype == trt.int32
+    ):
+        input_val = cast_trt_tensor(network, input_val, trt.float32, name)
+    return impl.unary.sqrt(
+        network,
+        target,
+        SourceIR.ATEN,
+        name,
+        input_val,
+    )
