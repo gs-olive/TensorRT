@@ -436,7 +436,7 @@ def operator_getitem(
     kwargs: Dict[str, Argument],
     name: str,
 ) -> Union[TRTTensor, Sequence[TRTTensor]]:
-    return target(*args, **kwargs)
+    return target(*args)
 
 
 @dynamo_tensorrt_converter(torch.ops.aten.clone.default)
