@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import torch
 from torch._decomp import register_decomposition
@@ -124,6 +124,34 @@ def addmm_replacement(
     return torch.add(
         torch.mul(input_, beta), torch.mul(torch.matmul(mat1, mat2), alpha)
     )
+
+
+@register_torch_trt_decomposition(
+    torch.ops.aten.var_mean.dim, registry=TORCH_TRT_DECOMPOSITIONS
+)
+@register_torch_trt_decomposition(
+    torch.ops.aten.var_mean.correction, registry=TORCH_TRT_DECOMPOSITIONS
+)
+def var_mean_replacement(
+    input_: torch.Tensor,
+    dim: int = None,
+    correction: int = 1,
+    keepdim: bool = False,
+    unbiased: bool = True,
+) -> List[torch.Tensor]:
+    if dim is None:
+        mean = torch.mean(input_)
+        variance = torch.mean(torch.pow(torch.sub(input_, mean), 2))
+    else:
+        mean = torch.mean(input_, dim, keepdim)
+        variance = torch.mean(torch.pow(torch.sub(input_, mean), 2), dim, keepdim)
+
+    if unbiased:
+        N = torch.numel(input_)
+        correction_term = N / (N - correction)
+        variance = torch.mul(variance, correction_term)
+
+    return [variance, mean]
 
 
 @register_torch_trt_decomposition(
