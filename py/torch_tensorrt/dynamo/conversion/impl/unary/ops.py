@@ -119,3 +119,27 @@ def erf(
     return convert_unary(
         network, target, source_ir, name, trt.UnaryOperation.ERF, input_val
     )
+
+
+def sin(
+    network: TRTNetwork,
+    target: Target,
+    source_ir: Optional[SourceIR],
+    name: str,
+    input_val: TRTTensor,
+) -> TRTTensor:
+    return convert_unary(
+        network, target, source_ir, name, trt.UnaryOperation.SIN, input_val
+    )
+
+
+def cos(
+    network: TRTNetwork,
+    target: Target,
+    source_ir: Optional[SourceIR],
+    name: str,
+    input_val: TRTTensor,
+) -> TRTTensor:
+    return convert_unary(
+        network, target, source_ir, name, trt.UnaryOperation.COS, input_val
+    )

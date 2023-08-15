@@ -492,3 +492,37 @@ def aten_ops_erf(
         name,
         args[0],
     )
+
+
+@dynamo_tensorrt_converter(torch.ops.aten.sin.default)
+def aten_ops_sin(
+    network: TRTNetwork,
+    target: Target,
+    args: Tuple[Argument, ...],
+    kwargs: Dict[str, Argument],
+    name: str,
+) -> Union[TRTTensor, Sequence[TRTTensor]]:
+    return impl.unary.sin(
+        network,
+        target,
+        SourceIR.ATEN,
+        name,
+        args[0],
+    )
+
+
+@dynamo_tensorrt_converter(torch.ops.aten.cos.default)
+def aten_ops_cos(
+    network: TRTNetwork,
+    target: Target,
+    args: Tuple[Argument, ...],
+    kwargs: Dict[str, Argument],
+    name: str,
+) -> Union[TRTTensor, Sequence[TRTTensor]]:
+    return impl.unary.cos(
+        network,
+        target,
+        SourceIR.ATEN,
+        name,
+        args[0],
+    )
