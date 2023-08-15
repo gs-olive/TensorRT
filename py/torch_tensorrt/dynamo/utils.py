@@ -204,14 +204,11 @@ def parse_dynamo_kwargs(kwargs: Any) -> CompilationSettings:
     settings.device = to_torch_tensorrt_device(settings.device)
 
     # Check and update device settings
-    default_torch_gpu_idx = torch.cuda.default_stream().device.index
-    if "device" not in kwargs and default_torch_gpu_idx != settings.device.gpu_id:
-        logger.warning(
-            f"No device specified, detected differing gpu IDs for CUDA default: {settings.device.gpu_id} "
-            f"and Torch default: {default_torch_gpu_idx}. Using Torch default gpu ID: {default_torch_gpu_idx}. "
+    if "device" not in kwargs:
+        logger.info(
+            f"Device not specified, using Torch default current device - cuda:{settings.device.gpu_id}. "
             "If this is incorrect, please specify an input device, via the device keyword."
         )
-        settings.device = Device(gpu_id=default_torch_gpu_idx)
 
     logger.debug(f"Compiling with Settings:\n{settings}")
 
