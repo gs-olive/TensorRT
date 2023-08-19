@@ -140,7 +140,6 @@ torch_enabled_decompositions: Set[OpOverload] = {
     aten.smooth_l1_loss_backward,
     aten.soft_margin_loss,
     aten.soft_margin_loss_backward,
-    aten._softmax,
     aten._softmax_backward_data,
     aten.softplus,
     aten.softplus_backward,

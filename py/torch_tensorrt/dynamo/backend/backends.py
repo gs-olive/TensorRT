@@ -1,4 +1,5 @@
 import logging
+import operator
 from functools import partial
 from typing import Any, Callable, Sequence
 
@@ -10,6 +11,7 @@ from torch_tensorrt.dynamo.conversion import (
     convert_module,
     repair_long_or_double_inputs,
 )
+from torch_tensorrt.dynamo.conversion.converter_registry import ConverterRegistry
 from torch_tensorrt.dynamo.lowering._decompositions import get_decompositions
 from torch_tensorrt.dynamo.utils import parse_dynamo_kwargs
 
@@ -57,6 +59,10 @@ def aot_torch_tensorrt_aten_backend(
             trace_joint=False,
             decompositions=get_decompositions(),
         )
+
+        orig, replacer = efficient_attention_replacement()
+
+        torch.fx.subgraph_rewriter.replace_pattern(graph_module, orig, replacer)
 
         constant_fold(graph_module)
 
@@ -214,8 +220,8 @@ def _compile_module(
     return partitioned_module
 
 
-@torch.utils._python_dispatch._disable_current_modes()
-def constant_fold(gm):
+@torch.utils._python_dispatch._disable_current_modes()  # type: ignore
+def constant_fold(gm: torch.fx.GraphModule) -> None:
     from torch._inductor.freezing import ConstantFolder, replace_node_with_constant
 
     cf = ConstantFolder(gm, skip_constructors=False)
@@ -236,3 +242,191 @@ def constant_fold(gm):
     gm.graph.eliminate_dead_code()
     gm.graph.lint()
     gm.recompile()
+
+
+def lower_efficient_attention(graph_module: torch.fx.GraphModule) -> None:
+    eff_attn = ConverterRegistry.qualified_name_or_str(
+        torch.ops.aten._scaled_dot_product_efficient_attention.default
+    )
+
+    import math
+
+    for node in graph_module.graph.nodes:
+        if (
+            ConverterRegistry.qualified_name_or_str(node.target) == eff_attn
+            and len(node.users) == 1
+            and ConverterRegistry.qualified_name_or_str(list(node.users)[0].target)
+            == "_operator.getitem"
+            and list(node.users)[0].args[1] == 0
+        ):
+            # Replacement
+            attention = node
+            getitem = list(node.users)[0]
+
+            q, k, v = node.args[:3]
+            with graph_module.graph.inserting_before(node.next):
+                transpose = graph_module.graph.call_function(
+                    torch.ops.aten.transpose.int,
+                    args=(k, -2, -1),
+                )
+                q_flat = graph_module.graph.call_function(
+                    torch.ops.aten.view.default,
+                    args=(q, [-1, *q.meta["val"].size()[-2:]]),
+                )
+                transpose_flat = graph_module.graph.call_function(
+                    torch.ops.aten.view.default,
+                    args=(q, [-1, *transpose.meta["val"].size()[-2:]]),
+                )
+                bmm = graph_module.graph.call_function(
+                    torch.ops.aten.bmm.default,
+                    args=(q_flat, transpose_flat),
+                )
+                mm = graph_module.graph.call_function(
+                    torch.ops.aten.view.default,
+                    args=(
+                        bmm,
+                        [*q.meta["val"].size()[:-2], *bmm.meta["val"].size()[-2:]],
+                    ),
+                )
+                div = graph_module.graph.call_function(
+                    torch.ops.aten.div.Scalar,
+                    args=(mm, math.sqrt(q.meta["val"].size()[-1])),
+                )
+                softmax = graph_module.graph.call_function(
+                    torch.ops.aten._softmax.default,
+                    args=(div, -1, False),
+                )
+                softmax_flat = graph_module.graph.call_function(
+                    torch.ops.aten.view.default,
+                    args=(softmax, [-1, *softmax.meta["val"].size()[-2:]]),
+                )
+                v_flat = graph_module.graph.call_function(
+                    torch.ops.aten.view.default,
+                    args=(v, [-1, *v.meta["val"].size()[-2:]]),
+                )
+                out_flat = graph_module.graph.call_function(
+                    torch.ops.aten.bmm.default,
+                    args=(softmax_flat, v_flat),
+                )
+                out = graph_module.graph.call_function(
+                    torch.ops.aten.view.default,
+                    args=(
+                        out_flat,
+                        [*v.meta["val"].size()[:-2], *out_flat.meta["val"].size()[-2:]],
+                    ),
+                )
+
+            getitem.replace_all_uses_with(out)
+            graph_module.graph.erase_node(getitem)
+            graph_module.graph.erase_node(attention)
+
+    graph_module.graph.lint()
+    graph_module.recompile()
+
+
+def efficient_attention_replacement():
+    def boilerplate(query, key, value):
+        ...
+
+    orig = torch.fx.symbolic_trace(boilerplate)
+    placeholders = [node for node in orig.graph.nodes if node.op == "placeholder"]
+    q, k, v = placeholders
+
+    output = [node for node in orig.graph.nodes if node.op == "output"][0]
+
+    with orig.graph.inserting_before(output):
+        att = orig.graph.call_function(
+            torch.ops.aten._scaled_dot_product_efficient_attention.default,
+            args=(q, k, v, None, False),
+        )
+        out = orig.graph.call_function(
+            operator.getitem,
+            args=(att, 0),
+        )
+
+    output.args = (out,)
+
+    orig.graph.lint()
+    orig.recompile()
+
+    def replacement(query, key, value):
+        return torch.nn.functional.scaled_dot_product_attention(query, key, value)
+
+    return orig, replacement
+
+
+# def lower_efficient_attention(graph_module: torch.fx.GraphModule) -> None:
+#     eff_attn = ConverterRegistry.qualified_name_or_str(torch.ops.aten._scaled_dot_product_efficient_attention.default)
+
+#     import math
+
+#     for node in graph_module.graph.nodes:
+#         if (ConverterRegistry.qualified_name_or_str(node.target) == eff_attn
+#             and len(node.users) == 1
+#             and ConverterRegistry.qualified_name_or_str(list(node.users)[0].target) == "_operator.getitem"
+#             and list(node.users)[0].args[1] == 0):
+#             # Replacement
+#             attention = node
+#             getitem = list(node.users)[0]
+
+#             q, k, v = node.args[:3]
+#             with graph_module.graph.inserting_before(node.next):
+#                 transpose = graph_module.graph.call_function(
+#                     torch.ops.aten.transpose.int,
+#                     args=(k, -2, -1),
+#                 )
+#                 q_flat = graph_module.graph.call_function(
+#                     torch.ops.aten.view.default,
+#                     args=(q, [-1, *q.meta["val"].size()[-2:]]),
+#                 )
+#                 transpose_flat = graph_module.graph.call_function(
+#                     torch.ops.aten.view.default,
+#                     args=(q, [-1, *transpose.meta["val"].size()[-2:]]),
+#                 )
+#                 bmm = graph_module.graph.call_function(
+#                     torch.ops.aten.bmm.default,
+#                     args=(q_flat, transpose_flat),
+#                 )
+#                 mm = graph_module.graph.call_function(
+#                     torch.ops.aten.view.default,
+#                     args=(bmm, [*q.meta["val"].size()[:-2], *bmm.meta["val"].size()[-2:]]),
+#                 )
+#                 div = graph_module.graph.call_function(
+#                     torch.ops.aten.div.Scalar,
+#                     args=(mm, math.sqrt(q.meta["val"].size()[-1])),
+#                 )
+#                 softmax = graph_module.graph.call_function(
+#                     torch.ops.aten._softmax.default,
+#                     args=(div, -1, False),
+#                 )
+#                 softmax_flat = graph_module.graph.call_function(
+#                     torch.ops.aten.view.default,
+#                     args=(softmax, [-1, *softmax.meta["val"].size()[-2:]]),
+#                 )
+#                 v_flat = graph_module.graph.call_function(
+#                     torch.ops.aten.view.default,
+#                     args=(v, [-1, *v.meta["val"].size()[-2:]]),
+#                 )
+#                 out_flat = graph_module.graph.call_function(
+#                     torch.ops.aten.bmm.default,
+#                     args=(softmax_flat, v_flat),
+#                 )
+#                 out = graph_module.graph.call_function(
+#                     torch.ops.aten.view.default,
+#                     args=(out_flat, [*v.meta["val"].size()[:-2], *out_flat.meta["val"].size()[-2:]]),
+#                 )
+
+#             getitem.replace_all_uses_with(out)
+#             graph_module.graph.erase_node(getitem)
+#             graph_module.graph.erase_node(attention)
+
+#     graph_module.graph.lint()
+#     graph_module.recompile()
+
+# def scaled_dot_product_attention(query, key, value, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None):
+#     # Efficient implementation equivalent to the following:
+#     scale_factor = 1 / math.sqrt(query.size(-1)) if scale is None else scale
+#     attn_weight = query @ key.transpose(-2, -1) * scale_factor
+#     attn_weight = torch.softmax(attn_weight, dim=-1)
+#     out = attn_weight @ value
+#     return out

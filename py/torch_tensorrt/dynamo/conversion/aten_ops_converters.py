@@ -53,6 +53,7 @@ def aten_ops_batch_norm(
 @dynamo_tensorrt_converter(torch.ops.aten.div.default)
 @dynamo_tensorrt_converter(torch.ops.aten.div.Tensor_mode)
 @dynamo_tensorrt_converter(torch.ops.aten.div.Tensor)
+@dynamo_tensorrt_converter(torch.ops.aten.div.Scalar)
 def aten_ops_div(
     network: TRTNetwork,
     target: Target,
@@ -545,3 +546,62 @@ def aten_ops_split(
     return impl.split.split(
         network, target, SourceIR.ATEN, name, args[0], args[1], args[2]
     )
+
+
+@dynamo_tensorrt_converter(
+    torch.nn.functional.scaled_dot_product_attention,
+)
+def tensorrt_scaled_dot_product_attention(
+    network: TRTNetwork,
+    target: Target,
+    args: Tuple[Argument, ...],
+    kwargs: Dict[str, Argument],
+    name: str,
+) -> Union[TRTTensor, Sequence[TRTTensor]]:
+    import math
+
+    from torch_tensorrt.fx.converters.converter_utils import (
+        add_binary_elementwise_layer,
+    )
+
+    mm = impl.matmul.matrix_multiply_transpose(
+        network, target, SourceIR.ATEN, name + "_mm", args[0], args[1]
+    )
+    div = add_binary_elementwise_layer(
+        network,
+        mm,
+        math.sqrt(args[0].shape[-1]),
+        trt.ElementWiseOperation.DIV,
+        target,
+        name + "_scale",
+    )
+    softmax = impl.normalization.softmax(
+        network, target, SourceIR.ATEN, name + "_softmax", div, -1
+    )
+    out = impl.matmul.matrix_multiply(
+        network, target, SourceIR.ATEN, name + "_out", softmax, args[2]
+    )
+
+    # import numpy as np
+    # from torch_tensorrt.fx.converters.converter_utils import (
+    #     get_trt_plugin,
+    #     mark_as_int8_layer,
+    #     set_layer_name,
+    # )
+    # from torch_tensorrt.fx.types import TRTPluginFieldCollection
+
+    # plugin_name = "CustomGeluPluginDynamic"
+    # # type_id 0 for float32, 1 for  float16
+    # type_id = trt.PluginField(
+    #     "type_id", np.array(0, dtype=np.int32), trt.PluginFieldType.INT32
+    # )
+    # field_collection = TRTPluginFieldCollection([type_id])
+    # plugin_version = "1"
+
+    # plugin = get_trt_plugin(plugin_name, field_collection, plugin_version)
+
+    # layer = network.add_plugin_v2([input_val], plugin)
+
+    # set_layer_name(layer, target, name)
+
+    return out
