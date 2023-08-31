@@ -7,26 +7,14 @@ from typing import Any, Callable, Dict, Optional, Sequence
 import torch
 import torch._dynamo as td
 import torch.utils._pytree as pytree
-import torch_tensorrt
 from torch._dynamo.utils import detect_fake_mode
 from torch._functorch.aot_autograd import _aot_export_function
 from torch._ops import OpOverload
 from torch_tensorrt.dynamo import CompilationSettings
 from torch_tensorrt.dynamo.compile import compile_module
-from torch_tensorrt.dynamo.lowering._decompositions import get_decompositions
+from torch_tensorrt.dynamo.lowering import apply_lowering_passes, get_decompositions
 from torch_tensorrt.dynamo.lowering._pre_aot_lowering import pre_aot_substitutions
 from torch_tensorrt.dynamo.utils import parse_dynamo_kwargs
-
-from packaging import version
-
-# Modify import location of utilities based on Torch version
-if version.parse(torch_tensorrt.sanitized_torch_version()) < version.parse("2.1.1"):
-    from torch._inductor.freezing import ConstantFolder, replace_node_with_constant
-else:
-    from torch._inductor.constant_folding import (
-        ConstantFolder,
-        replace_node_with_constant,
-    )
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +75,7 @@ def _pretraced_backend(
             fake_mode, "allow_non_fake_inputs", True
         ), fake_mode:
             # Invoke AOTAutograd to translate operators to aten
-            graph_module = aot_export_for_compile(
+            gm = aot_export_for_compile(
                 gm,
                 sample_inputs,
                 decompositions=get_decompositions(
@@ -97,10 +85,10 @@ def _pretraced_backend(
 
             logger.debug("Post-AOT Autograd graph:\n" + str(gm.graph))
 
-            constant_fold(graph_module)
+            gm = apply_lowering_passes(gm)
 
             trt_compiled = compile_module(
-                graph_module,
+                gm,
                 sample_inputs,
                 settings=settings,
             )
@@ -122,35 +110,6 @@ def _pretraced_backend(
                 + "specify pass_through_build_failures=False."
             )
             raise
-
-
-@torch.utils._python_dispatch._disable_current_modes()  # type: ignore
-def constant_fold(gm: torch.fx.GraphModule) -> Any:
-    """Adapted from:
-    https://github.com/pytorch/pytorch/blob/3a79621c9dce17f77fbddc06aab21f6bc477f313/torch/_inductor/freezing.py#L178-L197
-
-    Folds constants in the graph module, not skipping constructors
-
-    Modifies the graph in-place and replaces node with constants
-    """
-    cf = ConstantFolder(gm, skip_constructors=False)
-    cf.run()
-
-    for node, constant in cf.node_replacements.items():
-        replace_node_with_constant(gm, node, constant)
-
-    erased_params = []
-    for node in gm.graph.nodes:
-        if node.op == "get_attr" and len(node.users) == 0:
-            delattr(gm, node.target)
-            erased_params.append(node)
-
-    for node in erased_params:
-        gm.graph.erase_node(node)
-
-    gm.graph.eliminate_dead_code()
-    gm.graph.lint()
-    gm.recompile()
 
 
 def aot_export_for_compile(
