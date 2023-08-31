@@ -6,10 +6,12 @@ import torch
 # Import and order lowering passes and pass manager
 from .constant_folding import constant_fold
 from .pass_manager import DynamoPassManager
+from .remove_input_alias_fixing_clones import remove_input_alias_fixing_clones
 from .repair_input_as_output import repair_input_as_output
 
 ATEN_LOWERING_PASSES = DynamoPassManager.build_from_passlist(
     [
+        remove_input_alias_fixing_clones,
         constant_fold,
         repair_input_as_output,
     ]
