@@ -2,6 +2,9 @@ import logging
 
 import torch
 from torch._inductor.constant_folding import ConstantFolder, replace_node_with_constant
+from torch_tensorrt.dynamo.lowering.passes.pass_utils import (
+    clean_up_graph_after_modifications,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +33,7 @@ def constant_fold(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
     for node in erased_params:
         gm.graph.erase_node(node)
 
-    gm.graph.eliminate_dead_code()
-    gm.graph.lint()
-    gm.recompile()
+    gm = clean_up_graph_after_modifications(gm)
 
     logger.debug(f"Graph after constant folding:\n{gm.graph}")
 

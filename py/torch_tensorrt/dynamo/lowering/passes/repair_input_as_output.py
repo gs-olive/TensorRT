@@ -1,6 +1,9 @@
 import logging
 
 import torch
+from torch_tensorrt.dynamo.lowering.passes.pass_utils import (
+    clean_up_graph_after_modifications,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +40,7 @@ def repair_input_as_output(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
                 output.replace_input_with(placeholder, cloned_placeholder)
 
     if modified_graph:
-        gm.graph.eliminate_dead_code()
-        gm.graph.lint()
-        gm.recompile()
+        gm = clean_up_graph_after_modifications(gm)
         logger.debug(f"Graph after repair_input_as_output:\n{gm.graph}")
 
     return gm
