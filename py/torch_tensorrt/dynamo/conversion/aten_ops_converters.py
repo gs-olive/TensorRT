@@ -1056,3 +1056,46 @@ def aten_ops_split(
         split_size_or_sections=args[1],
         dim=args_bounds_check(args, 2, 0),
     )
+
+
+@dynamo_tensorrt_converter(
+    torch.nn.functional.scaled_dot_product_attention,
+)
+def tensorrt_scaled_dot_product_attention(
+    network: TRTNetwork,
+    target: Target,
+    args: Tuple[Argument, ...],
+    kwargs: Dict[str, Argument],
+    name: str,
+) -> Union[TRTTensor, Sequence[TRTTensor]]:
+    import math
+
+    from torch_tensorrt.fx.converters.converter_utils import (
+        add_binary_elementwise_layer,
+    )
+
+    mm = impl.matmul.matrix_multiply(
+        network,
+        target,
+        SourceIR.ATEN,
+        name + "_mm",
+        args[0],
+        args[1],
+        other_matrix_op=trt.MatrixOperation.TRANSPOSE,
+    )
+    div = add_binary_elementwise_layer(
+        network,
+        mm,
+        math.sqrt(args[0].shape[-1]),
+        trt.ElementWiseOperation.DIV,
+        target,
+        name + "_scale",
+    )
+    softmax = impl.normalization.softmax(
+        network, target, SourceIR.ATEN, name + "_softmax", div, -1
+    )
+    out = impl.matmul.matrix_multiply(
+        network, target, SourceIR.ATEN, name + "_out", softmax, args[2]
+    )
+
+    return out
