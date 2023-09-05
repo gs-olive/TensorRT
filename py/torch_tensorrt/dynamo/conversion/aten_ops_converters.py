@@ -1303,3 +1303,20 @@ def aten_ops_linear(
         weight=args[1],
         bias=args_bounds_check(args, 2, None),
     )
+
+
+@dynamo_tensorrt_converter(torch.ops.aten.erf.default)  # type: ignore[misc]
+def aten_ops_erf(
+    network: TRTNetwork,
+    target: Target,
+    args: Tuple[Argument, ...],
+    kwargs: Dict[str, Argument],
+    name: str,
+) -> Union[TRTTensor, Sequence[TRTTensor]]:
+    return impl.unary.erf(
+        network,
+        target,
+        SourceIR.ATEN,
+        name,
+        args[0],
+    )
