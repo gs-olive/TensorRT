@@ -1010,3 +1010,20 @@ def aten_ops_convolution(
         dilation=args[5],
         groups=args[8],
     )
+
+
+@dynamo_tensorrt_converter(torch.ops.aten.erf.default)
+def aten_ops_erf(
+    network: TRTNetwork,
+    target: Target,
+    args: Tuple[Argument, ...],
+    kwargs: Dict[str, Argument],
+    name: str,
+) -> Union[TRTTensor, Sequence[TRTTensor]]:
+    return impl.unary.erf(
+        network,
+        target,
+        SourceIR.ATEN,
+        name,
+        args[0],
+    )
