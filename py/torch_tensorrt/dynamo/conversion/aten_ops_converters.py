@@ -5,6 +5,9 @@ import torch
 from torch.fx.node import Argument, Node, Target
 from torch_tensorrt.dynamo._SourceIR import SourceIR
 from torch_tensorrt.dynamo.conversion import impl
+from torch_tensorrt.dynamo.conversion.converter_utils import (
+    dynamic_unsupported_with_args,
+)
 from torch_tensorrt.fx.types import TRTNetwork, TRTTensor
 
 from .converter_registry import dynamo_tensorrt_converter
@@ -1319,4 +1322,32 @@ def aten_ops_erf(
         SourceIR.ATEN,
         name,
         args[0],
+    )
+
+
+@dynamo_tensorrt_converter(
+    torch.ops.aten.split.Tensor, capability_validator=dynamic_unsupported_with_args([1])
+)  # type: ignore[misc]
+@dynamo_tensorrt_converter(
+    torch.ops.aten.split.sizes, capability_validator=dynamic_unsupported_with_args([1])
+)  # type: ignore[misc]
+@dynamo_tensorrt_converter(
+    torch.ops.aten.split_with_sizes.default,
+    capability_validator=dynamic_unsupported_with_args([1]),
+)  # type: ignore[misc]
+def aten_ops_split(
+    network: TRTNetwork,
+    target: Target,
+    args: Tuple[Argument, ...],
+    kwargs: Dict[str, Argument],
+    name: str,
+) -> Union[TRTTensor, Sequence[TRTTensor]]:
+    return impl.split.split(
+        network,
+        target,
+        SourceIR.ATEN,
+        name,
+        input=args[0],
+        split_size_or_sections=args[1],
+        dim=args_bounds_check(args, 2, 0),
     )

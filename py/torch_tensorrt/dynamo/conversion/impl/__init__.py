@@ -1,5 +1,3 @@
-from torch_tensorrt.fx.converters.impl import convolution
-
 from . import (
     activation,
     cast,
@@ -15,6 +13,7 @@ from . import (
     select,
     shape,
     slice,
+    split,
     squeeze,
     unary,
     unsqueeze,
