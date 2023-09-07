@@ -1066,6 +1066,7 @@ def aten_ops_sub(
 @dynamo_tensorrt_converter(torch.ops.aten.div.Tensor_mode)  # type: ignore[misc]
 @dynamo_tensorrt_converter(torch.ops.aten.div.Scalar)  # type: ignore[misc]
 @dynamo_tensorrt_converter(torch.ops.aten.div.Scalar_mode)  # type: ignore[misc]
+@dynamo_tensorrt_converter(torch.ops.prims.div.default)  # type: ignore[misc]
 def aten_ops_div(
     network: TRTNetwork,
     target: Target,
@@ -1392,3 +1393,50 @@ def tensorrt_scaled_dot_product_attention(
     )
 
     return out
+
+
+def broadcast_checker(broadcast_node: torch.fx.Node) -> bool:
+    return all(
+        broadcast_node.args[1][i] == 1
+        for i in range(len(broadcast_node.args[1]))
+        if i not in broadcast_node.args[2]
+    )
+
+
+@dynamo_tensorrt_converter(
+    torch.ops.prims.broadcast_in_dim.default, capability_validator=broadcast_checker
+)  # type: ignore[misc]
+def aten_ops_broadcast_in_dim(
+    network: TRTNetwork,
+    target: Target,
+    args: Tuple[Argument, ...],
+    kwargs: Dict[str, Argument],
+    name: str,
+) -> Union[TRTTensor, Sequence[TRTTensor]]:
+    return impl.unsqueeze.broadcast_in_dim(
+        network,
+        target,
+        SourceIR.ATEN,
+        name,
+        args[0],
+        args[1],
+        args[2],
+    )
+
+
+@dynamo_tensorrt_converter(torch.ops.aten.index.Tensor)  # type: ignore[misc]
+def aten_ops_index(
+    network: TRTNetwork,
+    target: Target,
+    args: Tuple[Argument, ...],
+    kwargs: Dict[str, Argument],
+    name: str,
+) -> Union[TRTTensor, Sequence[TRTTensor]]:
+    return impl.select.index(
+        network,
+        target,
+        SourceIR.ATEN,
+        name,
+        args[0],
+        args[1],
+    )

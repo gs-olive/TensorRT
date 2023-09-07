@@ -1,10 +1,11 @@
 import logging
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 
 import torch
 
 # Import and order lowering passes and pass manager
 from .constant_folding import constant_fold
+from .fuse_prims_broadcast import fuse_prims_broadcast
 from .lower_efficient_attention import lower_efficient_attention
 from .pass_manager import DynamoPassManager
 from .remove_input_alias_fixing_clones import remove_input_alias_fixing_clones
@@ -16,6 +17,7 @@ ATEN_LOWERING_PASSES = DynamoPassManager.build_from_passlist(
         constant_fold,
         repair_input_as_output,
         lower_efficient_attention,
+        fuse_prims_broadcast,
     ]
 )
 
@@ -23,7 +25,9 @@ logger = logging.getLogger(__name__)
 
 
 def add_lowering_pass(
-    lowering_pass: Callable[[torch.fx.GraphModule], torch.fx.GraphModule],
+    lowering_pass: Callable[
+        [torch.fx.GraphModule, Sequence[torch.Tensor]], torch.fx.GraphModule
+    ],
     index: Optional[int] = None,
 ) -> None:
     """Adds a lowering pass to the registry, at a specified index if desired
@@ -46,12 +50,14 @@ def remove_lowering_pass(index: int) -> None:
     return
 
 
-def apply_lowering_passes(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
+def apply_lowering_passes(
+    gm: torch.fx.GraphModule, sample_inputs: Sequence[torch.Tensor]
+) -> torch.fx.GraphModule:
     """Applies the lowering passes to a graph module, returns the modified GraphModule"""
     logging.debug(
         f"Invoking DynamoPassManager and applying lowering passes: {ATEN_LOWERING_PASSES}"
     )
-    return ATEN_LOWERING_PASSES(gm)
+    return ATEN_LOWERING_PASSES(gm, sample_inputs)
 
 
 def dump_lowering_passes() -> str:

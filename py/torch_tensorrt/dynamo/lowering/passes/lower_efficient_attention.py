@@ -1,4 +1,5 @@
 import operator
+from typing import Callable, Sequence, Tuple
 
 import torch
 from torch_tensorrt.dynamo.lowering.passes.pass_utils import (
@@ -7,7 +8,9 @@ from torch_tensorrt.dynamo.lowering.passes.pass_utils import (
 
 
 # FIXME: Needs test cases
-def lower_efficient_attention(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
+def lower_efficient_attention(
+    gm: torch.fx.GraphModule, sample_inputs: Sequence[torch.Tensor]
+) -> torch.fx.GraphModule:
     orig, replacement = efficient_attention_replacement()
 
     if torch.fx.subgraph_rewriter.replace_pattern(gm, orig, replacement):
@@ -16,8 +19,15 @@ def lower_efficient_attention(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
     return gm
 
 
-def efficient_attention_replacement():
-    def boilerplate(query, key, value):
+def efficient_attention_replacement() -> (
+    Tuple[
+        torch.fx.GraphModule,
+        Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor],
+    ]
+):
+    def boilerplate(
+        query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
+    ) -> torch.Tensor:
         ...
 
     orig = torch.fx.symbolic_trace(boilerplate)
@@ -41,7 +51,9 @@ def efficient_attention_replacement():
     orig.graph.lint()
     orig.recompile()
 
-    def replacement(query, key, value):
+    def replacement(
+        query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
+    ) -> torch.Tensor:
         return torch.nn.functional.scaled_dot_product_attention(query, key, value)
 
     return orig, replacement
