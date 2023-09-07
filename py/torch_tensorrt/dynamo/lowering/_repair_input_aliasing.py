@@ -11,7 +11,15 @@ def repair_input_aliasing(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
     See: https://github.com/pytorch/pytorch/issues/108079
     Undone by `remove_input_alias_fixing_clones` after tracing
     """
-    placeholders = [node for node in gm.graph.nodes if node.op == "placeholder"]
+    placeholders = [
+        node
+        for node in gm.graph.nodes
+        if (
+            node.op == "placeholder"
+            and isinstance(node.type, type)
+            and issubclass(node.type, torch.Tensor)
+        )
+    ]
 
     for node in placeholders:
         # Insert clones for placeholder nodes to avoid

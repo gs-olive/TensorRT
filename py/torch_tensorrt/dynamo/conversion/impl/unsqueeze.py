@@ -1,4 +1,4 @@
-from typing import Optional, cast
+from typing import Optional, Sequence, cast
 
 from torch.fx.node import Target
 from torch_tensorrt.dynamo._SourceIR import SourceIR
@@ -48,3 +48,34 @@ def unsqueeze(
     )
     set_layer_name(layer, target, name, source_ir)
     return layer.get_output(0)
+
+
+def broadcast_in_dim(
+    network: TRTNetwork,
+    target: Target,
+    source_ir: Optional[SourceIR],
+    name: str,
+    input_t: TRTTensor,
+    shape: Sequence[int],
+    broadcast_dimensions: Sequence[int],
+):
+    s = list(shape)
+    output = input_t
+
+    for broadcast_dim in broadcast_dimensions:
+        s[broadcast_dim] = None
+
+    for idx, x in enumerate(s):
+        if x is not None:
+            output = unsqueeze(
+                network,
+                target,
+                source_ir,
+                name + f"_unsqueeze_for_broadcast_{idx}",
+                output,
+                idx,
+            )
+
+    assert output.shape == shape, "Shapes don't match"
+
+    return output

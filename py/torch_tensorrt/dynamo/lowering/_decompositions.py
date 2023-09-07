@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import torch
 from torch._decomp import register_decomposition
@@ -83,11 +83,6 @@ replace_inplace_op(aten.scatter_add_, aten.scatter_add)
 replace_inplace_op(aten.scatter_reduce_, aten.scatter_reduce)
 
 
-@register_torch_trt_decomposition(aten.std, registry=TORCH_TRT_DECOMPOSITIONS)
-def std_replacement(*args, **kwargs) -> torch.Tensor:  # type: ignore
-    return torch.sqrt(torch.var(*args, **kwargs))
-
-
 @register_torch_trt_decomposition(aten.rsqrt, registry=TORCH_TRT_DECOMPOSITIONS)
 def rsqrt_replacement(*args, **kwargs) -> torch.Tensor:  # type: ignore
     return torch.reciprocal(torch.sqrt(*args, **kwargs))
@@ -133,6 +128,45 @@ def reciprocal_replacement(
     input_: torch.Tensor,
 ) -> torch.Tensor:
     return torch.div(1, input_)
+
+
+@register_torch_trt_decomposition(
+    torch.ops.prims.var.default, registry=TORCH_TRT_DECOMPOSITIONS
+)
+def var_decomposition(
+    input: torch.Tensor,
+    dims: Optional[List[int]],
+    correction: int,
+    output_dtype: Optional[torch.dtype] = None,
+) -> torch.Tensor:
+    if dims is None:
+        dims = []
+
+    if isinstance(dims, (tuple, list)) and len(dims) == 0:
+        n = input.numel()
+    else:
+        n = 1
+        for dim_i in dims:
+            n *= input.shape[dim_i]
+
+    mean = torch.mean(input, dims, keepdim=True)
+    sub = input - mean
+    sq = sub * sub
+    sum = torch.sum(sq, dims, keepdim=False)
+
+    if correction is None:
+        denom = float(n - 1)
+    else:
+        if isinstance(correction, int):
+            denom = float(n - correction)
+        elif isinstance(correction, float):
+            denom = float(n) - correction
+        else:
+            raise RuntimeError("correction must be int or float")
+
+    var = sum / max(0, denom)
+
+    return var
 
 
 def get_decompositions(

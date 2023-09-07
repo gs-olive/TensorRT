@@ -154,9 +154,7 @@ def cast_int_int_div_trt_tensor(
     Returns:
         A list of lhs_val and rhs_val casted to the approriate datatype
     """
-    if (lhs_val.dtype == trt.int8 or lhs_val.dtype == trt.int32) and (
-        rhs_val.dtype == trt.int8 or rhs_val.dtype == trt.int32
-    ):
+    if lhs_val.dtype == trt.int32 and rhs_val.dtype == trt.int32:
         lhs_val = cast_trt_tensor(network, lhs_val, trt.float32, name)
         rhs_val = cast_trt_tensor(network, rhs_val, trt.float32, name)
     return [lhs_val, rhs_val]
@@ -290,3 +288,10 @@ def get_trt_tensor(
         return input_val
     else:
         raise AssertionError(f"Cannot convert {input_val} to TRT constant")
+
+
+def cast_int_or_float_to_bool(network: TRTNetwork, name: str, tensor: TRTTensor):
+    if tensor.dtype != trt.bool:
+        return cast_trt_tensor(network, tensor, trt.bool, name)
+
+    return tensor

@@ -1,4 +1,5 @@
 import logging
+from typing import Sequence
 
 import torch
 from torch._inductor.constant_folding import ConstantFolder, replace_node_with_constant
@@ -10,7 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 @torch.utils._python_dispatch._disable_current_modes()  # type: ignore
-def constant_fold(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
+def constant_fold(
+    gm: torch.fx.GraphModule, sample_inputs: Sequence[torch.Tensor]
+) -> torch.fx.GraphModule:
     """Adapted from:
     https://github.com/pytorch/pytorch/blob/3a79621c9dce17f77fbddc06aab21f6bc477f313/torch/_inductor/freezing.py#L178-L197
 

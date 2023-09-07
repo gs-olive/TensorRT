@@ -49,8 +49,9 @@ def sum(
     ):
         input_val = cast_trt_tensor(network, input_val, trt.float32, name)
 
-    if dim is None:
+    if dim is None or (isinstance(dim, (tuple, list)) and len(dim) == 0):
         dim = tuple(range(len(input_val.shape)))
+
     layer = network.add_reduce(
         input_val,
         trt.ReduceOperation.SUM,

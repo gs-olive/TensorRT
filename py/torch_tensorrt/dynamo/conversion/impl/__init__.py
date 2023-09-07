@@ -5,6 +5,7 @@ from . import (
     conv,
     elementwise,
     embedding,
+    linear,
     matmul,
     normalization,
     permutation,
