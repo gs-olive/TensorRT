@@ -241,6 +241,7 @@ def aten_ops_hard_sigmoid(
     )
 
 
+@dynamo_tensorrt_converter(torch.ops.aten.bmm.default)  # type: ignore[misc]
 @dynamo_tensorrt_converter(torch.ops.aten.matmul)  # type: ignore[misc]
 @dynamo_tensorrt_converter(torch.ops.aten.mm.default)  # type: ignore[misc]
 @dynamo_tensorrt_converter(torch.ops.aten.mv.default)  # type: ignore[misc]
@@ -549,6 +550,7 @@ def aten_ops_amax(
     )
 
 
+@dynamo_tensorrt_converter(torch.ops.prims.sum.default)  # type: ignore[misc]
 @dynamo_tensorrt_converter(torch.ops.aten.sum.default)  # type: ignore[misc]
 @dynamo_tensorrt_converter(torch.ops.aten.sum.dim_IntList)  # type: ignore[misc]
 def aten_ops_sum(

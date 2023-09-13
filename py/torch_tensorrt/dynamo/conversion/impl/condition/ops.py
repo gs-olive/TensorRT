@@ -22,15 +22,11 @@ def where(
     other: TRTTensor,
     condition: TRTTensor,
 ) -> TRTTensor:
-    input_dim = len(tuple(input.shape))
-    other_dim = len(tuple(other.shape))
     condition_dim = len(tuple(condition.shape))
 
-    if type(input) != TRTTensor:
-        assert type(input) is torch.Tensor, f"value {input} is not torch.Tensor!"
-
-    if type(other) != TRTTensor:
-        assert type(other) is torch.Tensor, f"value {other} is not torch.Tensor!"
+    input = get_trt_tensor(network, input, name + "_input")
+    other = get_trt_tensor(network, other, name + "_other")
+    condition = get_trt_tensor(network, condition, name + "_condition")
 
     if not (broadcastable(input, other)):
         assert "The two torch tensors should be broadcastable"

@@ -52,7 +52,7 @@ dependencies = [
 dynamic = ["version"]
 
 [project.optional-dependencies]
-torchvision = ["torchvision==0.17.0.dev20230907+cu121"]
+torchvision = ["torchvision>=0.16.0.dev,<0.17.0"]
 
 [project.urls]
 Homepage = "https://pytorch.org/tensorrt"

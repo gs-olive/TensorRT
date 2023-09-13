@@ -5,15 +5,17 @@ import numpy as np
 import tensorrt as trt
 from torch.fx.node import Target
 from torch_tensorrt.dynamo._SourceIR import SourceIR
-from torch_tensorrt.dynamo.conversion.converter_utils import broadcastable
+from torch_tensorrt.dynamo.conversion.converter_utils import (
+    broadcastable,
+    get_trt_tensor,
+    to_numpy,
+)
 from torch_tensorrt.dynamo.conversion.impl.elementwise import convert_binary_elementwise
 from torch_tensorrt.dynamo.conversion.impl.shape import get_shape_with_dynamic_shape
 from torch_tensorrt.fx.converters.converter_utils import (
     get_positive_dim,
-    get_trt_tensor,
     has_dynamic_shape,
     set_layer_name,
-    to_numpy,
 )
 from torch_tensorrt.fx.types import Shape, TRTNetwork, TRTTensor
 
@@ -95,7 +97,7 @@ def index(
             _LOGGER.debug(f"Shape of {i} index is {ind.shape}")
             adv_indx_indices.append(i)
             # torch.nn.parameter.Parameter=> torch.Tensor
-            ind = get_trt_tensor(network, ind, f"parameter_to_fp32_tensor_{i}")
+            ind = get_trt_tensor(network, ind, name + f"_parameter_to_fp32_tensor_{i}")
             if last_index is not None:
                 if not (broadcastable(ind, last_index)):
                     assert "The indices should be broadcastable"
@@ -128,7 +130,7 @@ def index(
 
         for i in range(rank):
             dim = input_shape[i]
-            dim_tensor = get_trt_tensor(network, dim, f"individual_dim_{i}")
+            dim_tensor = get_trt_tensor(network, dim, name + f"_individual_dim_{i}")
             # dim_tensor_list is a list of tensors
             dim_tensor_list.append(dim_tensor)
 
@@ -165,8 +167,8 @@ def index(
 
         concat_tensor_layer = network.add_concatenation(
             [
-                get_trt_tensor(network, mult_d0, "d0_shape"),
-                get_trt_tensor(network, mult_d1, "d1_shape"),
+                get_trt_tensor(network, mult_d0, name + "_d0_shape"),
+                get_trt_tensor(network, mult_d1, name + "_d1_shape"),
             ]
         )
         set_layer_name(concat_tensor_layer, target, name + "_index_Concat", source_ir)
@@ -189,7 +191,7 @@ def index(
                 network,
                 target,
                 source_ir,
-                name + "index_intermediate",
+                name + f"_index_intermediate_{i}",
                 trt.ElementWiseOperation.PROD,
                 multiplier,
                 tensor_indices[i],
@@ -198,7 +200,7 @@ def index(
                 network,
                 target,
                 source_ir,
-                name + "index_sum_intermediate",
+                name + f"_index_sum_intermediate_{i}",
                 trt.ElementWiseOperation.SUM,
                 cum_adv_index,
                 adv_index,
@@ -207,7 +209,7 @@ def index(
                 network,
                 target,
                 source_ir,
-                name + "index_intermediate",
+                name + f"_index_product_intermediate_{i}",
                 trt.ElementWiseOperation.PROD,
                 multiplier,
                 dim_tensor_list[adv_indx_indices[i]],
@@ -235,7 +237,9 @@ def index(
             == adv_indx_indices[adv_indx_count - 1] - adv_indx_indices[0] + 1
         ):
             _LOGGER.debug("The indices are continuous in this case")
-            concat_tensor_reshape.append(get_trt_tensor(network, -1, "dynamic_concat"))
+            concat_tensor_reshape.append(
+                get_trt_tensor(network, -1, name + "_dynamic_concat")
+            )
             for i in range(0, rank):
                 if i not in adv_indx_indices:
                     curr_dim = dim_tensor_list[i]
@@ -243,7 +247,7 @@ def index(
 
             concat_tensor_layer = network.add_concatenation(concat_tensor_reshape)
             set_layer_name(
-                concat_tensor_layer, target, name + "_index_Concat_reshape", source_ir
+                concat_tensor_layer, target, name + "_index_concat_reshape", source_ir
             )
             concat_tensor = concat_tensor_layer.get_output(0)
 

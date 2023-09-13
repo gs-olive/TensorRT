@@ -11,7 +11,6 @@ from torch.fx.node import Target
 from torch_tensorrt.fx.converters.converter_utils import (
     Frameworks,
     get_axes_for_reduce_op,
-    to_numpy,
     unified_dtype_converter,
 )
 from torch_tensorrt.fx.types import TRTDataType, TRTNetwork, TRTTensor
@@ -233,7 +232,7 @@ def cast_int_or_float_to_bool(
 
 def create_constant(
     network: TRTNetwork,
-    value: Union[int, float, np.ndarray, torch.Tensor],
+    value: Union[int, float, bool, np.ndarray, torch.Tensor],
     name: str,
     dtype: Optional[Union[torch.dtype, np.dtype, TRTDataType]],
 ) -> TRTTensor:
@@ -242,7 +241,7 @@ def create_constant(
     Args:
         network (TRTNetwork): A TensorRT network to which we want to add
             a constant layer.
-        value (Union[int, float, np.ndarray, torch.Tensor]): A literal value, Numpy array,
+        value (Union[int, float, bool, np.ndarray, torch.Tensor]): A literal value, Numpy array,
             or a PyTorch tensor that will be used as value of the added TensorRT Constant layer.
         name (str): Name of the added TensorRT Constant layer.
         dtype (Optional[Union[torch.dtype, np.dtype, TRTDataType]]):
@@ -251,7 +250,7 @@ def create_constant(
         A TensorRT ITensor that represents the given value.
     """
     constant = network.add_constant(
-        (1,) if isinstance(value, (int, float)) else value.shape,
+        (1,) if isinstance(value, (int, float, bool)) else value.shape,
         to_numpy(value, dtype).copy(),
     )
     constant.name = name
@@ -278,22 +277,73 @@ def get_trt_tensor(
     Returns:
         A TensorRT ITensor that represents the given value.
     """
-    # TRT can not add constant for bool type. We do a work around to 1) cast it to int and 2)cast to bool later
-    # This is useful for logical operations which require input to be bool type
-    if isinstance(input_val, bool):
-        input_val = int(input_val)
-    elif isinstance(input_val, torch.Tensor) and (
-        input_val.dtype == torch.bool or input_val.dtype == torch.int64
-    ):
-        input_val = input_val.to(torch.int32)
-    elif isinstance(input_val, np.ndarray) and (
-        input_val.dtype == np.bool_ or input_val.dtype == np.int64
-    ):
-        input_val = input_val.astype(np.int32)
+    # Downcast 64-bit tensors to 32-bit for TRT constant freezing
+    if isinstance(input_val, torch.Tensor):
+        if input_val.dtype == torch.int64:
+            input_val = input_val.to(torch.int32)
+        elif input_val.dtype == torch.float64:
+            input_val = input_val.to(torch.float32)
 
-    if isinstance(input_val, (torch.Tensor, np.ndarray, int, float)):
+    elif isinstance(input_val, np.ndarray):
+        if input_val.dtype == np.int64:
+            input_val = input_val.astype(np.int32)
+        elif input_val.dtype == np.float64:
+            input_val = input_val.astype(np.float32)
+
+    if isinstance(input_val, (torch.Tensor, np.ndarray, int, float, bool)):
         return create_constant(network, input_val, name, dtype)
+
     elif isinstance(input_val, TRTTensor):
         return input_val
+
     else:
         raise AssertionError(f"Cannot convert {input_val} to TRT constant")
+
+
+def to_numpy(
+    value: Optional[Union[torch.Tensor, np.ndarray, int, float, bool]],
+    dtype: Optional[Union[torch.dtype, np.dtype, TRTDataType]] = None,
+) -> np.ndarray:
+    """
+    Convert a PyTorch Tensor, Numpy array, or scalar to a Numpy Array. If the tensor is
+    quantized it will be dequantized first.
+
+    Args:
+        value (Optional[Union[torch.Tensor, np.ndarray, int, float, bool]]):
+            A PyTorch tensor, Numpy array, int, float, or bool
+        dtype (Optional[Union[torch.dtype, np.dtype, TRTDataType]]):
+            If a dtype is given, we will convert the type of the given `value` to this dtype.
+
+    Returns:
+        A Numpy array.
+    """
+    output = None
+
+    if value is None or isinstance(value, np.ndarray):
+        output = value
+
+    elif isinstance(value, torch.Tensor):
+        if value.is_quantized:
+            value = value.dequantize()
+
+        output = value.cpu().detach().contiguous().numpy()
+
+    elif isinstance(value, int):
+        output = np.array([value], dtype=np.int32)
+
+    elif isinstance(value, float):
+        output = np.array([value], dtype=np.float32)
+
+    elif isinstance(value, bool):
+        output = np.array([value], dtype=np.bool_)
+
+    if isinstance(output, np.ndarray):
+        return (
+            output
+            if (dtype is None or output is None)
+            else output.astype(unified_dtype_converter(dtype, Frameworks.NUMPY))
+        )
+    else:
+        raise AssertionError(
+            f"to_numpy can only be called on None, bool, int, float, np.ndarray, or torch.Tensor, got: {value}"
+        )
