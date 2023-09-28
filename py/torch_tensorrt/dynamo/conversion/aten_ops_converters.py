@@ -1413,3 +1413,18 @@ def aten_ops_linear(
         weight=args[1],
         bias=args_bounds_check(args, 2, None),
     )
+
+
+@dynamo_tensorrt_converter(
+    torch.nn.functional.scaled_dot_product_attention,
+)  # type: ignore[misc]
+def tensorrt_scaled_dot_product_attention(
+    network: TRTNetwork,
+    target: Target,
+    args: Tuple[Argument, ...],
+    kwargs: Dict[str, Argument],
+    name: str,
+) -> Union[TRTTensor, Sequence[TRTTensor]]:
+    return impl.attention.scaled_dot_product_attention(
+        network, target, SourceIR.ATEN, name, args[0], args[1], args[2]
+    )
